@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import styles from './page.module.css';
 
@@ -36,11 +37,7 @@ export default function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.logo_area}>
-        <div className={styles.logo_icon}>
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3zM5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-          </svg>
-        </div>
+        <Image src="/logo.png" alt="로고" width={30} height={30} className={styles.logo_img} priority />
         <h1 className={styles.logo_title}>교육원 관리 시스템</h1>
       </div>
 
