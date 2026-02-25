@@ -33,6 +33,7 @@ export default function StudentsPage() {
   const [centers, setCenters] = useState<EducationCenter[]>([]);
   const [monthly, setMonthly] = useState<MonthlyEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Student | null>(null);
@@ -46,6 +47,11 @@ export default function StudentsPage() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      setIsSuperAdmin(profile?.role === 'super_admin');
+    }
     const [studentsRes, coursesRes, centersRes] = await Promise.all([
       supabase.from('students').select('*, courses(*)').order('registered_at', { ascending: false }),
       supabase.from('courses').select('*').order('id'),
@@ -264,8 +270,10 @@ export default function StudentsPage() {
                             onClick={() => router.push(`/students/${s.id}/plan`)}>플랜설계</button>
                           <button className={`${styles.action_btn} ${styles.action_btn_edit}`}
                             onClick={() => { setEditTarget(s); setModalOpen(true); }}>수정</button>
-                          <button className={`${styles.action_btn} ${styles.action_btn_delete}`}
-                            onClick={() => handleDelete(s.id)}>삭제</button>
+                          {isSuperAdmin && (
+                            <button className={`${styles.action_btn} ${styles.action_btn_delete}`}
+                              onClick={() => handleDelete(s.id)}>삭제</button>
+                          )}
                         </div>
                       </td>
                     </tr>
