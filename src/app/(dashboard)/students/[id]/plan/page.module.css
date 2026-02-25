@@ -152,13 +152,13 @@
 }
 
 .section_add_btn {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #3182F6;
   background: #EFF6FF;
   border: none;
   border-radius: 8px;
-  padding: 5px 12px;
+  padding: 7px 14px;
   cursor: pointer;
   transition: background 0.15s;
   flex-shrink: 0;
@@ -173,13 +173,13 @@
 }
 
 .section_add_btn_gubup {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #7C3AED;
   background: #EDE9FE;
   border: none;
   border-radius: 8px;
-  padding: 5px 12px;
+  padding: 7px 14px;
   cursor: pointer;
   transition: background 0.15s;
   flex-shrink: 0;
@@ -188,13 +188,13 @@
 .section_add_btn_gubup:hover { background: #DDD6FE; }
 
 .section_link_btn {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #3182F6;
   background: #EFF6FF;
   border: none;
   border-radius: 8px;
-  padding: 5px 10px;
+  padding: 7px 14px;
   cursor: pointer;
   text-decoration: none;
   flex-shrink: 0;
@@ -211,6 +211,106 @@
   padding: 32px 0;
   color: #b0b8c1;
   font-size: 13px;
+}
+
+.gubup_desc {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin: 0 0 4px;
+}
+
+.gubup_group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gubup_group_label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.2px;
+}
+
+.gubup_list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gubup_item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: left;
+}
+
+.gubup_item:hover:not(:disabled) {
+  border-color: #7C3AED;
+  background: #F5F3FF;
+}
+
+.gubup_item_done {
+  background: #F5F3FF;
+  border-color: #C4B5FD;
+}
+
+.gubup_item_done:hover {
+  border-color: #EF4444;
+  background: #FEF2F2;
+}
+
+.gubup_item_done:hover .gubup_item_name {
+  color: #EF4444;
+}
+
+.gubup_item_done:hover .gubup_item_check::before {
+  content: '−';
+  position: absolute;
+}
+
+.gubup_item_done:hover .gubup_item_check {
+  color: #EF4444;
+  position: relative;
+}
+
+.gubup_item_name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #191F28;
+}
+
+.gubup_item_done .gubup_item_name {
+  color: #7C3AED;
+}
+
+.gubup_item_credit {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.gubup_item_check {
+  font-size: 13px;
+  color: #7C3AED;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.gubup_item_add {
+  font-size: 15px;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .section_empty {
@@ -733,7 +833,12 @@
   flex-direction: column;
   gap: 16px;
   padding: 16px 20px;
+  max-height: 60vh;
+  overflow-y: auto;
 }
+
+.popup_body::-webkit-scrollbar { width: 4px; }
+.popup_body::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
 
 .popup_field {
   display: flex;
@@ -968,8 +1073,8 @@
 }
 
 .popup_cancel {
-  height: 36px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 18px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
   background: #FFFFFF;
@@ -985,8 +1090,8 @@
 }
 
 .popup_confirm {
-  height: 36px;
-  padding: 0 18px;
+  height: 40px;
+  padding: 0 20px;
   border: none;
   border-radius: 8px;
   background: #3182F6;
@@ -1087,15 +1192,15 @@
 .semester_header_right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .semester_count_badge {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #3182F6;
   background: #EFF6FF;
-  padding: 4px 10px;
+  padding: 6px 14px;
   border-radius: 20px;
 }
 
@@ -1109,8 +1214,8 @@
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 7px 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;

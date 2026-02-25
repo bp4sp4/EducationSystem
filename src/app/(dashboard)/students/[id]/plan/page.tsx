@@ -65,6 +65,28 @@ const DOKAKSA_STAGES = ['1단계', '2단계', '3단계', '4단계'] as const;
 
 const YEAR_OPTIONS = Array.from({ length: 8 }, (_, i) => String(2023 + i)); // 2023~2030
 
+// 사회복지사 2급 구법 과목 목록
+const GUBUP_SUBJECTS: { name: string; credits: number; subject_type: '필수' | '선택' }[] = [
+  { name: '사회복지학개론',      credits: 3, subject_type: '필수' },
+  { name: '인간행동과사회환경',   credits: 3, subject_type: '필수' },
+  { name: '사회복지정책론',      credits: 3, subject_type: '필수' },
+  { name: '사회복지법제론',      credits: 3, subject_type: '필수' },
+  { name: '사회복지실천론',      credits: 3, subject_type: '필수' },
+  { name: '사회복지실천기술론',   credits: 3, subject_type: '필수' },
+  { name: '사회복지조사론',      credits: 3, subject_type: '필수' },
+  { name: '사회복지행정론',      credits: 3, subject_type: '필수' },
+  { name: '지역사회복지론',      credits: 3, subject_type: '필수' },
+  { name: '사회복지현장실습',     credits: 3, subject_type: '필수' },
+  { name: '아동복지론',         credits: 3, subject_type: '선택' },
+  { name: '노인복지론',         credits: 3, subject_type: '선택' },
+  { name: '장애인복지론',        credits: 3, subject_type: '선택' },
+  { name: '가족복지론',         credits: 3, subject_type: '선택' },
+  { name: '정신건강사회복지론',   credits: 3, subject_type: '선택' },
+  { name: '학교사회복지론',      credits: 3, subject_type: '선택' },
+  { name: '의료사회복지론',      credits: 3, subject_type: '선택' },
+  { name: '청소년복지론',        credits: 3, subject_type: '선택' },
+];
+
 const INITIAL_SEMESTERS: Semester[] = [
   { id: 0, year: '2025', term: 1, label: '', months: '' },
   { id: 1, year: '2025', term: 2, label: '', months: '' },
@@ -341,6 +363,21 @@ export default function PlanPage() {
     }
   }
 
+  // ── 핸들러: 구법 과목 추가 (DB) ─────────────────────────────
+  async function handleAddGubupSubject(subj: typeof GUBUP_SUBJECTS[number]) {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('subjects').insert({
+      category: '전공',
+      name: subj.name,
+      credits: subj.credits,
+      type: '이론',
+      subject_type: subj.subject_type,
+      student_id: id,
+    }).select().single();
+    if (error) { alert(`추가 실패: ${error.message}`); return; }
+    setSubjects((prev) => [...prev, data as Subject]);
+  }
+
   // ── 핸들러: 과목 수기 추가 (DB) ─────────────────────────────
   async function handleAddCustomSubject() {
     if (!subjectForm.name.trim()) return;
@@ -571,8 +608,8 @@ export default function PlanPage() {
         ) : (
           <>
             <div className={styles.stat_card}>
-              <div className={styles.stat_label}>총 과목</div>
-              <div className={styles.stat_value}>{totalSubjects}<span className={styles.stat_unit}>/ {TARGET_SUBJECTS}개</span></div>
+              <div className={styles.stat_label}>이번 학기 과목</div>
+              <div className={styles.stat_value}>{currentSemesterSubjectIds.length}<span className={styles.stat_unit}>/ 8개</span></div>
             </div>
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>총 학점</div>
@@ -970,12 +1007,32 @@ export default function PlanPage() {
               </button>
             </div>
             <div className={styles.popup_body}>
-              <div className={styles.gubup_coming_soon}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#b0b8c1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
-                </svg>
-                <span>구법 과목 목록 준비 중입니다</span>
-              </div>
+              <p className={styles.gubup_desc}>클릭하면 과목 목록에 추가됩니다. 이미 추가된 과목은 비활성화됩니다.</p>
+              {(['필수', '선택'] as const).map((type) => (
+                <div key={type} className={styles.gubup_group}>
+                  <div className={styles.gubup_group_label}>{type}과목</div>
+                  <div className={styles.gubup_list}>
+                    {GUBUP_SUBJECTS.filter((s) => s.subject_type === type).map((subj) => {
+                      const existing = subjects.find((s) => s.name === subj.name && s.student_id === id);
+                      return (
+                        <button
+                          key={subj.name}
+                          type="button"
+                          className={`${styles.gubup_item} ${existing ? styles.gubup_item_done : ''}`}
+                          onClick={() => existing ? handleDeleteSubject(existing.id) : handleAddGubupSubject(subj)}
+                        >
+                          <span className={styles.gubup_item_name}>{subj.name}</span>
+                          <span className={styles.gubup_item_credit}>{subj.credits}학점</span>
+                          {existing
+                            ? <span className={styles.gubup_item_check}>✓</span>
+                            : <span className={styles.gubup_item_add}>+</span>
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             <div className={styles.popup_footer}>
               <button className={styles.popup_cancel} onClick={() => setShowGubupPopup(false)}>닫기</button>
