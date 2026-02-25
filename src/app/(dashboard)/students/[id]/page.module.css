@@ -1,0 +1,196 @@
+.page_wrap {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading {
+  text-align: center;
+  color: #8b95a1;
+  font-size: 14px;
+  padding: 80px 0;
+}
+
+/* 뒤로가기 */
+.back_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #8b95a1;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  width: fit-content;
+  transition: color 0.15s;
+}
+.back_btn:hover {
+  color: #333d4b;
+}
+
+/* 헤더 카드 */
+.header_card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.header_left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.name_row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student_name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #191f28;
+  margin: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge_enrolled {
+  background: #EFF6FF;
+  color: #3182F6;
+}
+.badge_completed {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.badge_practice {
+  background: #FFF7ED;
+  color: #EA580C;
+}
+
+.meta_row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7684;
+  flex-wrap: wrap;
+}
+
+.meta_dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+
+/* 헤더 액션 */
+.header_actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.plan_btn {
+  background: #3182F6;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.plan_btn:hover {
+  background: #1d6de0;
+}
+
+.edit_btn {
+  background: #f2f4f6;
+  color: #333d4b;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.edit_btn:hover {
+  background: #e5e8eb;
+}
+
+/* 정보 그리드 */
+.info_grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .info_grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.info_card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.card_title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8b95a1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.info_list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info_row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.info_label {
+  font-size: 13px;
+  color: #8b95a1;
+  width: 72px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.info_value {
+  font-size: 14px;
+  color: #191f28;
+  font-weight: 500;
+  flex: 1;
+  word-break: break-all;
+}

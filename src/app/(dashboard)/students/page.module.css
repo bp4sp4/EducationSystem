@@ -1,0 +1,430 @@
+/* ── 상단 요약 ── */
+.summary_row {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* ── 월별 현황 카드 ── */
+.monthly_card {
+  width: 100%;
+  background: #FFFFFF;
+  border: none;
+  padding: 24px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.monthly_card_title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  margin-bottom: 14px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.monthly_list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.monthly_list::-webkit-scrollbar {
+  width: 3px;
+}
+.monthly_list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+.monthly_item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background-color 0.1s;
+  cursor: default;
+}
+
+.monthly_item:hover {
+  background-color: #F5F8FF;
+}
+
+.monthly_month {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.monthly_bar_wrap {
+  flex: 1;
+  height: 6px;
+  background-color: #EEF2F6;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.monthly_bar {
+  height: 100%;
+  background-color: #3182F6;
+  border-radius: 99px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+
+.monthly_count {
+  font-size: 14px;
+  font-weight: 700;
+  color: #3182F6;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.monthly_empty {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* ── 통계 카드들 ── */
+.stats_grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat_card {
+  width: 100%;
+  background: #FFFFFF;
+  border: none;
+  padding: 24px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat_card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  
+  border-radius: 12px 12px 0 0;
+}
+
+.stat_card_label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+  letter-spacing: 0.1px;
+}
+
+.stat_card_value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #191F28;
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+
+.stat_card_prospective::before { background-color: #F59E0B; }
+.stat_card_prospective .stat_card_label { color: #D97706; }
+.stat_card_prospective .stat_card_value { color: #D97706; }
+
+
+.stat_card_enrolled .stat_card_label { color: #3182F6; }
+.stat_card_enrolled .stat_card_value { color: #3182F6; }
+
+
+.stat_card_completed .stat_card_label { color: #059669; }
+.stat_card_completed .stat_card_value { color: #059669; }
+
+/* ── 필터 바 ── */
+.filter_bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  background: #FFFFFF;
+  padding: 16px 24px;
+  border-radius: 16px;
+  border: none;
+  box-shadow: none;
+}
+
+.filter_search_wrap {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  align-items: center;
+}
+
+.filter_search_icon {
+  position: absolute;
+  left: 11px;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.filter_search {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 34px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #191F28;
+  
+  outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.filter_search:focus {
+  border-color: #3182F6;
+  background: #FFFFFF;
+  
+}
+
+.filter_search::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+
+.add_btn {
+  height: 38px;
+  padding: 0 16px;
+  background-color: #3182F6;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s, box-shadow 0.15s;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.add_btn:hover {
+  background-color: #1B6EE8;
+}
+
+/* ── 테이블 ── */
+.table_wrap {
+  width: 100%;
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table_head {
+  background-color: #F9FAFB;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table_th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.table_row {
+  border-bottom: 1px solid #F2F4F6;
+  transition: background-color 0.1s;
+}
+
+.table_row:last-child {
+  border-bottom: none;
+}
+
+.table_row:hover {
+  background-color: #F5F8FF;
+}
+
+.table_td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: #191F28;
+  vertical-align: middle;
+}
+
+.table_name {
+  font-weight: 600;
+}
+
+.name_link {
+  color: #3182F6;
+  font-weight: 600;
+  cursor: pointer;
+  transition: text-decoration 0.1s;
+}
+
+.name_link:hover {
+  text-decoration: underline;
+}
+
+.table_phone {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.table_course {
+  font-size: 13px;
+}
+
+.table_manager {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.table_date {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* ── 상태 뱃지 ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.badge_prospective {
+  background-color: #FFFBEB;
+  color: #D97706;
+  border-color: #FDE68A;
+}
+
+.badge_enrolled {
+  background-color: #EFF6FF;
+  color: #3182F6;
+  border-color: #BFDBFE;
+}
+
+.badge_completed {
+  background-color: #ECFDF5;
+  color: #059669;
+  border-color: #A7F3D0;
+}
+
+.badge_practice {
+  background-color: #FFF7ED;
+  color: #EA580C;
+  border-color: #FED7AA;
+}
+
+/* ── 액션 버튼 ── */
+.action_group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action_btn {
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  color: var(--color-text-secondary);
+}
+
+.action_btn_edit {
+  color: #3182F6;
+  border-color: #BFDBFE;
+  background: #EFF6FF;
+}
+
+.action_btn_edit:hover {
+  background: #DBEAFE;
+  border-color: #3182F6;
+}
+
+.action_btn_delete {
+  color: #EF4444;
+  border-color: #FECACA;
+  background: #FEF2F2;
+}
+
+.action_btn_delete:hover {
+  background: #FEE2E2;
+  border-color: #EF4444;
+}
+
+.action_btn_plan {
+  color: #059669;
+  border-color: #A7F3D0;
+  background: #ECFDF5;
+}
+
+.action_btn_plan:hover {
+  background: #D1FAE5;
+  border-color: #059669;
+}
+
+/* ── 빈 상태 ── */
+.empty_state {
+  text-align: center;
+  padding: 72px 20px;
+}
+
+.empty_text {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.empty_sub {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  margin-top: 6px;
+}
+
+/* ── 테이블 푸터 ── */
+.table_footer {
+  padding: 10px 16px;
+  border-top: 1px solid #F2F4F6;
+  background: #FAFAFA;
+}
+
+.table_count {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+}

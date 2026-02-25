@@ -1,0 +1,153 @@
+.root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg);
+}
+
+.header {
+  background: #F2F4F6;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header_inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header_left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header_logo_img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.header_title {
+  font-size: 23px;
+  font-weight: 700;
+  color: #191F28;
+  letter-spacing: -0.3px;
+}
+
+.header_right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header_user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.header_avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background-color: #3182F6;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.header_user_name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #191F28;
+}
+
+.header_role_badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background-color: #EBF3FE;
+  color: #3182F6;
+  border: 1px solid #BFDBFE;
+}
+
+.logout_btn {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: #F2F4F6;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.logout_btn:hover {
+  border-color: #6B7684;
+  color: #191F28;
+  background: var(--color-bg);
+}
+
+.nav {
+  background: #F2F4F6;
+}
+
+.nav_inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 28px;
+  display: flex;
+  gap: 4px;
+}
+
+.nav_item {
+  padding: 0 4px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s;
+  text-decoration: none;
+  margin-right: 12px;
+}
+
+.nav_item:hover {
+  color: #191F28;
+}
+
+.nav_item_active {
+  color: #3182F6;
+  border-bottom-color: #3182F6;
+  font-weight: 700;
+}
+
+.main {
+  flex: 1;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 28px;
+}

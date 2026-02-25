@@ -1,0 +1,1497 @@
+/* ── 공통 레이아웃 ─────────────────────────────────────────── */
+
+.page_wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading_text {
+  padding: 40px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* ── 뒤로가기 버튼 ───────────────────────────────────────────── */
+
+.back_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 4px;
+  transition: color 0.15s;
+}
+
+.back_btn:hover {
+  color: var(--color-text-primary);
+}
+
+/* ── 헤더 카드 ───────────────────────────────────────────────── */
+
+.header_card {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header_left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.course_name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #191F28;
+  letter-spacing: -0.4px;
+}
+
+.student_meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.meta_sep {
+  color: var(--color-border);
+}
+
+.save_btn {
+  height: 40px;
+  padding: 0 20px;
+  background-color: #3182F6;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.save_btn:hover {
+  background-color: #1B6EE8;
+}
+
+.save_indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7684;
+}
+
+.save_dot_saved {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #059669;
+}
+
+.save_dot_saving {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #F59E0B;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── 전적대 이수 과목 섹션 ────────────────────────────────────── */
+
+/* ── 학점 인정 공통 섹션 ─────────────────────────────────────── */
+
+.credit_section {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 20px 24px;
+}
+
+.credit_section_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.credit_section_title_wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section_count_badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3182F6;
+  background: #EFF6FF;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.section_add_btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.section_add_btn:hover { background: #DBEAFE; }
+
+.section_btn_group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section_add_btn_gubup {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7C3AED;
+  background: #EDE9FE;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.section_add_btn_gubup:hover { background: #DDD6FE; }
+
+.section_link_btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.section_link_btn:hover { background: #DBEAFE; }
+
+.gubup_coming_soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 0;
+  color: #b0b8c1;
+  font-size: 13px;
+}
+
+.section_empty {
+  font-size: 13px;
+  color: #8b95a1;
+  padding: 8px 0;
+}
+
+.credit_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.credit_item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #F9FAFB;
+  border-radius: 10px;
+}
+
+.credit_item_name {
+  flex: 1;
+  font-size: 13px;
+  color: #191F28;
+  font-weight: 500;
+}
+
+.credit_item_date {
+  font-size: 12px;
+  color: #8b95a1;
+}
+
+.stage_badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7C3AED;
+  background: #EDE9FE;
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.item_remove_btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: #b0b8c1;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.item_remove_btn:hover { color: #EF4444; }
+
+/* subject 삭제 버튼 */
+.subject_delete_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: none;
+  border: none;
+  color: #b0b8c1;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.subject_delete_btn:hover { color: #EF4444; }
+
+/* ── prev_section 유지 (하위호환) ────────────────────────────── */
+.prev_section {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.prev_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section_title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #191F28;
+}
+
+.prev_add_btn {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.prev_add_btn:hover {
+  background: #DBEAFE;
+}
+
+.prev_add_row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #F9FAFB;
+  border-radius: 10px;
+}
+
+.prev_add_select {
+  flex: 1;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #191F28;
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+.prev_add_select:focus {
+  border-color: #3182F6;
+}
+
+.prev_confirm_btn {
+  height: 36px;
+  padding: 0 14px;
+  background: #3182F6;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.prev_confirm_btn:hover {
+  background: #1B6EE8;
+}
+
+.prev_cancel_btn {
+  height: 36px;
+  padding: 0 14px;
+  background: #F2F4F6;
+  color: var(--color-text-secondary);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.prev_cancel_btn:hover {
+  background: #E5E8EC;
+}
+
+.prev_empty {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  padding: 4px 0;
+}
+
+.prev_list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.prev_item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #F2F4F6;
+  border-radius: 8px;
+}
+
+.prev_item_name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #191F28;
+}
+
+.prev_item_remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  padding: 0;
+  margin-left: 2px;
+  transition: color 0.15s;
+}
+
+.prev_item_remove:hover {
+  color: #EF4444;
+}
+
+/* ── 학력 안내 배너 ──────────────────────────────────────────── */
+
+.edu_banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+
+.edu_banner_icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.edu_banner_text {
+  font-size: 13px;
+  color: #191F28;
+  line-height: 1.5;
+}
+
+.edu_banner_sub {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+/* ── 통계 카드 4개 ───────────────────────────────────────────── */
+
+.stats_row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat_card {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat_label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat_value {
+  font-size: 26px;
+  font-weight: 800;
+  color: #191F28;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.stat_unit {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-left: 4px;
+}
+
+.stat_bar_wrap {
+  width: 100%;
+  height: 4px;
+  background: #F2F4F6;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.stat_bar {
+  height: 100%;
+  background: #3182F6;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ── 두 패널 레이아웃 ────────────────────────────────────────── */
+
+.plan_layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.panel_title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+/* ── 좌측: 과목 목록 패널 ─────────────────────────────────────── */
+
+.subject_panel {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 20px;
+}
+
+.subject_filter {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #191F28;
+  background: #F9FAFB;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.subject_filter:focus {
+  border-color: #3182F6;
+  background: #FFFFFF;
+}
+
+.subject_list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100vh - 380px);
+  overflow-y: auto;
+}
+
+.subject_list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.subject_list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+.subject_category_label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 10px 4px 6px;
+}
+
+.subject_card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background-color 0.1s;
+  gap: 8px;
+}
+
+.subject_card_active {
+  cursor: pointer;
+}
+
+.subject_card_active:hover {
+  background-color: #EFF6FF;
+}
+
+.subject_card_active:hover .subject_name {
+  color: #3182F6;
+}
+
+.subject_card_disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* ── 과목 패널 헤더 ──────────────────────────────────────────── */
+
+.subject_panel_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.subject_panel_header .panel_title {
+  margin-bottom: 0;
+}
+
+.subject_add_btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+}
+
+.subject_add_btn:hover {
+  background: #DBEAFE;
+}
+
+/* ── 전적대 분류 뱃지 ────────────────────────────────────────── */
+
+.prev_cat_badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #F2F4F6;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+/* ── 팝업 ────────────────────────────────────────────────────── */
+
+.popup_overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  animation: fade_in 0.15s ease;
+}
+
+@keyframes fade_in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.popup {
+  background: #FFFFFF;
+  border-radius: 16px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  animation: popup_in 0.15s ease;
+  overflow: visible;
+}
+
+@keyframes popup_in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.popup_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 0;
+}
+
+.popup_title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #191F28;
+}
+
+.popup_close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.popup_close:hover {
+  background: #F2F4F6;
+  color: #191F28;
+}
+
+.popup_body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px;
+}
+
+.popup_field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popup_label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.popup_input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #191F28;
+  background: #FAFAFA;
+  outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.popup_input:focus {
+  border-color: #3182F6;
+  background: #FFFFFF;
+}
+
+/* 팝업 내 FilterDropdown 스타일 드롭다운 */
+
+.fd_wrap {
+  position: relative;
+}
+
+.fd_trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 13px;
+  font-weight: 500;
+  color: #191F28;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+  user-select: none;
+}
+
+.fd_trigger_open {
+  border-color: #3182F6;
+  background: #F0F7FF;
+}
+
+.fd_trigger:hover:not(.fd_trigger_open) {
+  border-color: #8B95A1;
+  background: #FAFAFA;
+}
+
+.fd_chevron {
+  color: #8B95A1;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.fd_chevron_open {
+  transform: rotate(180deg);
+  color: #3182F6;
+}
+
+.fd_dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  background: #FFFFFF;
+  border: 1px solid #E5E8EB;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+  z-index: 600;
+  padding: 6px;
+  animation: dropdown_in 0.12s ease;
+}
+
+.fd_option {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #191F28;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.fd_option:hover {
+  background-color: #F2F4F6;
+}
+
+.fd_option_active {
+  color: #3182F6;
+  font-weight: 600;
+}
+
+.fd_option_active:hover {
+  background-color: #EBF3FE;
+}
+
+.popup_row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.popup_radio_group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.popup_radio {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.1s;
+  user-select: none;
+}
+
+.popup_radio input[type="radio"] {
+  display: none;
+}
+
+.popup_radio:hover {
+  border-color: #3182F6;
+  color: #3182F6;
+}
+
+.popup_radio_active {
+  background: #EFF6FF;
+  border-color: #3182F6;
+  color: #3182F6;
+  font-weight: 600;
+}
+
+.popup_label_sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+
+.popup_divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 0 -4px;
+}
+
+/* 학점은행 검색 */
+
+.cb_search_wrap {
+  position: relative;
+}
+
+.cb_searching {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  padding: 6px 2px;
+}
+
+.cb_results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #FFFFFF;
+  border: 1px solid #E5E8EB;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+  z-index: 700;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px;
+  animation: dropdown_in 0.12s ease;
+}
+
+.cb_results::-webkit-scrollbar { width: 4px; }
+.cb_results::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
+
+.cb_result_item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #191F28;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.cb_result_item:hover {
+  background-color: #EFF6FF;
+  color: #3182F6;
+  font-weight: 500;
+}
+
+.cb_no_result {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 6px 2px;
+  line-height: 1.6;
+}
+
+.cb_no_result_link {
+  color: #3182F6;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.popup_footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 20px 18px;
+}
+
+.popup_cancel {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.popup_cancel:hover {
+  background: #F2F4F6;
+}
+
+.popup_confirm {
+  height: 36px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 8px;
+  background: #3182F6;
+  font-size: 13px;
+  font-weight: 600;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.popup_confirm:hover:not(:disabled) {
+  background: #1B6EE8;
+}
+
+.popup_confirm:disabled {
+  background: #C5D8FD;
+  cursor: not-allowed;
+}
+
+/* ── 체크 아이콘 ─────────────────────────────────────────────── */
+
+.subject_check {
+  color: #3182F6;
+  flex-shrink: 0;
+}
+
+.subject_check_placeholder {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.subject_max_notice {
+  font-size: 12px;
+  font-weight: 600;
+  color: #D97706;
+  background: #FFFBEB;
+  border-radius: 7px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+}
+
+.subject_name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #191F28;
+  flex: 1;
+  line-height: 1.3;
+  transition: color 0.1s;
+}
+
+.subject_badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.credit_badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #EFF6FF;
+  color: #3182F6;
+}
+
+.type_badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #F2F4F6;
+  color: var(--color-text-secondary);
+}
+
+.type_badge_practice {
+  background: #FFF7ED;
+  color: #EA580C;
+}
+
+/* ── 우측: 학기별 수강 계획 패널 ─────────────────────────────── */
+
+.semester_panel_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.semester_panel_header .panel_title {
+  margin-bottom: 0;
+}
+
+.semester_header_right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.semester_count_badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.semester_count_badge_full {
+  color: #DC2626;
+  background: #FEF2F2;
+}
+
+.semester_add_btn {
+  background: #3182F6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.semester_add_btn:hover {
+  background: #1d6de0;
+}
+
+.tab_count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.3);
+  font-size: 10px;
+  font-weight: 700;
+  color: #3182F6;
+  margin-top: 2px;
+}
+
+.semester_tab_active .tab_count {
+  background: rgba(255,255,255,0.25);
+  color: #FFFFFF;
+}
+
+.semester_panel {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+/* 학기 탭 */
+
+.semester_tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: visible;
+  margin-bottom: 20px;
+  padding: 8px 4px 4px;
+}
+
+.semester_tab_wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.semester_tab_wrap_active .tab_delete_btn,
+.semester_tab_wrap:hover .tab_delete_btn {
+  opacity: 1;
+}
+
+.tab_delete_btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #EF4444;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 1;
+}
+
+.semester_tabs::-webkit-scrollbar {
+  height: 3px;
+}
+
+.semester_tabs::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
+
+.semester_tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #F9FAFB;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.semester_tab:hover {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+}
+
+.tab_year {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tab_term {
+  font-size: 15px;
+  font-weight: 700;
+  color: #191F28;
+}
+
+.semester_tab_active {
+  background: #3182F6;
+  border-color: #3182F6;
+}
+
+.semester_tab_active:hover {
+  background: #1B6EE8;
+  border-color: #1B6EE8;
+}
+
+.semester_tab_active .tab_year {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.semester_tab_active .tab_term {
+  color: #FFFFFF;
+}
+
+/* 학기 상세 */
+
+.semester_detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.semester_title_big {
+  font-size: 18px;
+  font-weight: 700;
+  color: #191F28;
+  letter-spacing: -0.3px;
+}
+
+.semester_title_small {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: -10px;
+}
+
+/* 학기 년도·학기 선택 */
+
+.semester_meta_row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.semester_year_select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  color: #191F28;
+  background: var(--color-surface);
+  cursor: pointer;
+  outline: none;
+}
+
+.semester_year_select:focus {
+  border-color: var(--color-primary);
+}
+
+.semester_term_btns {
+  display: flex;
+  gap: 6px;
+}
+
+.semester_term_btn {
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.semester_term_btn_active {
+  border-color: var(--color-primary);
+  background: #EFF6FF;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 날짜 입력 */
+
+.date_row {
+  display: flex;
+  gap: 12px;
+}
+
+.date_field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.date_label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.date_input {
+  height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #191F28;
+  background: #F9FAFB;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.date_input:focus {
+  border-color: #3182F6;
+  background: #FFFFFF;
+}
+
+/* 배정된 과목 목록 */
+
+.semester_empty {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  padding: 24px;
+  text-align: center;
+  background: #F9FAFB;
+  border-radius: 10px;
+}
+
+.assigned_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.assigned_item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #F9FAFB;
+  border-radius: 10px;
+  gap: 10px;
+}
+
+.assigned_info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.assigned_name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #191F28;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assigned_remove_btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.assigned_remove_btn:hover {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+/* ── 실습예정 요건 트래커 ────────────────────────────────────── */
+
+.practice_tracker {
+  background: #FFF7ED;
+  border: 1px solid #FED7AA;
+  border-radius: 14px;
+  padding: 16px 20px;
+}
+
+.practice_tracker_title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #EA580C;
+  margin-bottom: 12px;
+}
+
+.practice_tracker_items {
+  display: flex;
+  gap: 12px;
+}
+
+.practice_item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #FED7AA;
+  border-radius: 10px;
+  padding: 10px 16px;
+  flex: 1;
+  transition: border-color 0.15s;
+}
+
+.practice_item_done {
+  border-color: #059669;
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.practice_item_label {
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  flex: 1;
+}
+
+.practice_item_count {
+  font-size: 14px;
+  font-weight: 700;
+  color: inherit;
+}
+
+/* ── 과목 필수/선택 뱃지 ────────────────────────────────────── */
+
+.subject_type_badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.subject_type_required {
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.subject_type_elective {
+  background: #F5F3FF;
+  color: #7C3AED;
+}
