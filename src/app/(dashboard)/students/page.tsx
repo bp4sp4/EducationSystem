@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { logActivity } from '@/lib/logger';
 import StudentModal from '@/components/StudentModal';
 import FilterDropdown from '@/components/FilterDropdown';
 import type { Student, Course, EducationCenter, StudentFormData, MonthlyEnrollment } from '@/types';
@@ -119,17 +120,21 @@ export default function StudentsPage() {
     if (editTarget) {
       const { error } = await supabase.from('students').update(payload).eq('id', editTarget.id);
       if (error) { alert(`수정 실패: ${error.message}`); return; }
+      logActivity({ action: '학생 수정', target_type: 'student', target_name: data.name, detail: `상태: ${data.status}` });
     } else {
       const { error } = await supabase.from('students').insert(payload);
       if (error) { alert(`등록 실패: ${error.message}`); return; }
+      logActivity({ action: '학생 추가', target_type: 'student', target_name: data.name, detail: `과정ID: ${data.course_id}, 담당자: ${data.manager_name}` });
     }
     await fetchAll();
   }
 
   async function handleDelete(id: string) {
     if (!confirm('정말 삭제하시겠습니까?')) return;
+    const deletedName = students.find((s) => s.id === id)?.name ?? id;
     const { error } = await supabase.from('students').delete().eq('id', id);
     if (error) { alert(`삭제 실패: ${error.message}`); return; }
+    logActivity({ action: '학생 삭제', target_type: 'student', target_name: deletedName });
     await fetchAll();
   }
 

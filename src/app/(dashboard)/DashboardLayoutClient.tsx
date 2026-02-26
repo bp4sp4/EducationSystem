@@ -7,9 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
 import styles from './layout.module.css';
 
-const NAV_ITEMS = [
-  { href: '/students', label: '학생 관리' },
-];
+// NAV_ITEMS는 DashboardLayoutClient 내부에서 profile.role 기반으로 동적 생성됨
 
 export default function DashboardLayoutClient({
   children,
@@ -20,6 +18,12 @@ export default function DashboardLayoutClient({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+
+  // super_admin일 때만 활동 로그 탭이 노출된다
+  const navItems = [
+    { href: '/students', label: '학생 관리' },
+    ...(profile?.role === 'super_admin' ? [{ href: '/admin/logs', label: '활동 로그' }] : []),
+  ];
 
   async function handleLogout() {
     const supabase = createClient();
@@ -60,7 +64,7 @@ export default function DashboardLayoutClient({
 
       <nav className={styles.nav}>
         <div className={styles.nav_inner}>
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

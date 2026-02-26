@@ -118,3 +118,66 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ============================
+-- 활동 로그
+-- ============================
+
+create table public.activity_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete set null,
+  user_name text not null,
+  action text not null,
+  target_type text,
+  target_name text,
+  detail text,
+  created_at timestamptz default now()
+);
+
+alter table public.activity_logs enable row level security;
+
+create policy "인증된 유저 로그 등록" on public.activity_logs
+  for insert to authenticated with check (true);
+
+create policy "슈퍼관리자 로그 조회" on public.activity_logs
+  for select using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin')
+  );
+
+-- ============================
+-- 학점이수내역
+-- ============================
+
+create table public.student_credit_history (
+  id uuid default gen_random_uuid() primary key,
+  student_id uuid references public.students(id) on delete cascade not null,
+  subject_name text not null,
+  credits numeric not null,
+  institution text,
+  completed_date date,
+  created_at timestamptz default now()
+);
+
+alter table public.student_credit_history enable row level security;
+
+create policy "인증된 유저 학점이수내역 전체" on public.student_credit_history
+  for all to authenticated using (true) with check (true);
+
+-- ============================
+-- 성적 증명서 (파일 메타데이터)
+-- ============================
+
+create table public.student_documents (
+  id uuid default gen_random_uuid() primary key,
+  student_id uuid references public.students(id) on delete cascade not null,
+  file_name text not null,
+  file_path text not null,
+  file_size integer,
+  doc_type text not null default 'transcript', -- 'credit_history' | 'transcript'
+  created_at timestamptz default now()
+);
+
+alter table public.student_documents enable row level security;
+
+create policy "인증된 유저 문서 전체" on public.student_documents
+  for all to authenticated using (true) with check (true);

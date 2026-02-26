@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { logActivity } from '@/lib/logger';
 import type { Student } from '@/types';
 import styles from './page.module.css';
 
@@ -42,6 +43,16 @@ interface DokaksaEntry {
   stage: string;
   subject_name: string;
   credits: number;
+}
+
+interface StudentDocument {
+  id: string;
+  student_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number | null;
+  doc_type: string;
+  created_at: string;
 }
 
 interface Semester {
@@ -203,10 +214,33 @@ export default function PlanPage() {
   const [newSemesterForm, setNewSemesterForm] = useState({ year: '2025', term: 1 });
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
 
+  // 전체보기
+  const [showFullView, setShowFullView] = useState(false);
+
+  // 문서 모달
+  const [docModal, setDocModal] = useState<null | 'credit' | 'transcript'>(null);
+
+  // 학점이수내역 & 성적 증명서 (파일 첨부)
+  const [documents, setDocuments] = useState<StudentDocument[]>([]);
+  const [uploadingCredit, setUploadingCredit] = useState(false);
+  const [uploadingTranscript, setUploadingTranscript] = useState(false);
+  const creditFileInputRef = useRef<HTMLInputElement>(null);
+  const transcriptFileInputRef = useRef<HTMLInputElement>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; fileType: 'image' | 'pdf' | 'other' } | null>(null);
+
   const planConfig = useMemo(
     () => getPlanConfig(student?.education_level ?? null, student?.courses?.name ?? null),
     [student?.education_level, student?.courses?.name],
   );
+
+  // ── 팝업 열림 시 배경 스크롤 잠금 ───────────────────────────
+  const anyPopupOpen = showSubjectPopup || showGubupPopup || showPrevPopup
+    || showCertPopup || showDokaksaPopup || showAddSemesterPopup || !!previewDoc || !!docModal;
+
+  useEffect(() => {
+    document.body.style.overflow = anyPopupOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [anyPopupOpen]);
 
   // ── 데이터 로드 ─────────────────────────────────────────────
   useEffect(() => {
@@ -218,12 +252,14 @@ export default function PlanPage() {
       supabase.from('student_credit_certs').select('*').eq('student_id', id).order('created_at'),
       supabase.from('student_dokaksa').select('*').eq('student_id', id).order('created_at'),
       supabase.from('student_plans').select('*').eq('student_id', id).maybeSingle(),
-    ]).then(([studentRes, subjectsRes, prevRes, certsRes, dokaksaRes, planRes]) => {
+      supabase.from('student_documents').select('*').eq('student_id', id).order('created_at', { ascending: false }),
+    ]).then(([studentRes, subjectsRes, prevRes, certsRes, dokaksaRes, planRes, documentsRes]) => {
       setStudent(studentRes.data as Student);
       if (subjectsRes.data?.length)  setSubjects(subjectsRes.data as Subject[]);
       if (prevRes.data?.length)      setPrevSubjects(prevRes.data as PrevSubject[]);
       if (certsRes.data?.length)     setCreditCerts(certsRes.data as CreditCert[]);
       if (dokaksaRes.data?.length)   setDokaksaList(dokaksaRes.data as DokaksaEntry[]);
+      if (documentsRes.data?.length) setDocuments(documentsRes.data as StudentDocument[]);
       if (planRes.data) {
         const p = planRes.data;
         if (p.semesters?.length)       setSemesters(p.semesters);
@@ -376,6 +412,7 @@ export default function PlanPage() {
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setSubjects((prev) => [...prev, data as Subject]);
+    logActivity({ action: '구법 과목 추가', target_type: 'subject', target_name: subj.name, detail: student?.name });
   }
 
   // ── 핸들러: 과목 수기 추가 (DB) ─────────────────────────────
@@ -391,14 +428,17 @@ export default function PlanPage() {
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setSubjects((prev) => [...prev, data as Subject]);
+    logActivity({ action: '과목 추가', target_type: 'subject', target_name: subjectForm.name, detail: student?.name });
     setSubjectForm({ category: '전공', name: '', credits: 3, type: '이론' });
     setShowSubjectPopup(false);
   }
 
   async function handleDeleteSubject(subjectId: number) {
     const supabase = createClient();
+    const deletedSubjectName = subjects.find((s) => s.id === subjectId)?.name;
     const { error } = await supabase.from('subjects').delete().eq('id', subjectId).eq('student_id', id);
     if (error) { alert(`삭제 실패: ${error.message}`); return; }
+    logActivity({ action: '과목 삭제', target_type: 'subject', target_name: deletedSubjectName, detail: student?.name });
     setSubjects((prev) => prev.filter((s) => s.id !== subjectId));
     // 학기 배정에서도 제거
     setSemesterSubjects((prev) => {
@@ -443,6 +483,7 @@ export default function PlanPage() {
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setPrevSubjects((prev) => [...prev, data as PrevSubject]);
+    logActivity({ action: '전적대 과목 추가', target_type: 'prev_subject', target_name: prevForm.name, detail: student?.name });
     setPrevForm({ category: '전공', name: '', credits: 3 });
     setShowPrevPopup(false);
     setCbQuery(''); setCbResults([]);
@@ -467,6 +508,7 @@ export default function PlanPage() {
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setCreditCerts((prev) => [...prev, data as CreditCert]);
+    logActivity({ action: '자격증 추가', target_type: 'cert', target_name: certForm.name, detail: student?.name });
     setCertForm({ name: '', credits: 3, acquired_date: '' });
     setShowCertPopup(false);
   }
@@ -490,6 +532,7 @@ export default function PlanPage() {
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setDokaksaList((prev) => [...prev, data as DokaksaEntry]);
+    logActivity({ action: '독학사 추가', target_type: 'dokaksa', target_name: dokaksaForm.subject_name, detail: student?.name });
     setDokaksaForm({ stage: '1단계', subject_name: '', credits: 3 });
     setShowDokaksaPopup(false);
   }
@@ -499,6 +542,76 @@ export default function PlanPage() {
     const { error } = await supabase.from('student_dokaksa').delete().eq('id', entryId);
     if (error) { alert(`삭제 실패: ${error.message}`); return; }
     setDokaksaList((prev) => prev.filter((d) => d.id !== entryId));
+  }
+
+  // ── 핸들러: 파일 업로드 (공통) ──────────────────────────────
+  async function handleFileUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+    docType: 'credit_history' | 'transcript',
+    fileInputRef: React.RefObject<HTMLInputElement | null>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const setUploading = docType === 'credit_history' ? setUploadingCredit : setUploadingTranscript;
+    setUploading(true);
+    const supabase = createClient();
+    const ext = file.name.split('.').pop() ?? 'bin';
+    const filePath = `${id}/${docType}/${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from('student-documents').upload(filePath, file);
+    if (uploadError) { alert(`업로드 실패: ${uploadError.message}`); setUploading(false); return; }
+    const { data, error: dbError } = await supabase.from('student_documents').insert({
+      student_id: id,
+      file_name: file.name,
+      file_path: filePath,
+      file_size: file.size,
+      doc_type: docType,
+    }).select().single();
+    if (dbError) { alert(`저장 실패: ${dbError.message}`); setUploading(false); return; }
+    setDocuments((prev) => [data as StudentDocument, ...prev]);
+    logActivity({ action: '파일 업로드', target_type: docType, target_name: file.name, detail: student?.name });
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function handleDeleteDocument(doc: StudentDocument) {
+    if (!confirm(`"${doc.file_name}" 파일을 삭제하시겠습니까?`)) return;
+    const supabase = createClient();
+    await supabase.storage.from('student-documents').remove([doc.file_path]);
+    const { error } = await supabase.from('student_documents').delete().eq('id', doc.id);
+    if (error) { alert(`삭제 실패: ${error.message}`); return; }
+    setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+  }
+
+  const creditHistoryDocs = documents.filter((d) => d.doc_type === 'credit_history');
+  const transcriptDocs    = documents.filter((d) => d.doc_type === 'transcript');
+
+  async function handlePreviewDocument(doc: StudentDocument) {
+    const supabase = createClient();
+    const { data } = await supabase.storage.from('student-documents').createSignedUrl(doc.file_path, 300);
+    if (!data?.signedUrl) return;
+    const ext = doc.file_name.split('.').pop()?.toLowerCase() ?? '';
+    const fileType = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) ? 'image'
+      : ext === 'pdf' ? 'pdf' : 'other';
+    setPreviewDoc({ url: data.signedUrl, name: doc.file_name, fileType });
+  }
+
+  async function handleDownloadDocument(doc: StudentDocument) {
+    const supabase = createClient();
+    const { data } = await supabase.storage.from('student-documents').createSignedUrl(doc.file_path, 60);
+    if (!data?.signedUrl) return;
+    const res = await fetch(data.signedUrl);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = doc.file_name; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function formatFileSize(bytes: number | null) {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   }
 
   // ── 자동 저장 (debounce 800ms) ──────────────────────────────
@@ -512,6 +625,7 @@ export default function PlanPage() {
         student_id: id, semesters, semester_subjects: semesterSubjects,
         semester_dates: semesterDates, updated_at: new Date().toISOString(),
       }, { onConflict: 'student_id' });
+      logActivity({ action: '플랜 저장', target_type: 'plan', target_name: student?.name });
       setSaving(false);
     }, 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
@@ -529,6 +643,145 @@ export default function PlanPage() {
   const currentSemesterSubjectIds = semesterSubjects[selectedSemester] ?? [];
   const currentDates              = semesterDates[selectedSemester] ?? { start: '', end: '' };
 
+  // ── 전체보기 ────────────────────────────────────────────────
+  const ORDINALS_KR = ['첫', '두번째', '세번째', '네번째', '다섯번째', '여섯번째', '일곱번째', '여덟번째', '아홉번째', '열번째'];
+  const SEM_COLORS = [
+    { bg: '#EEF2FF', border: '#C7D2FE', label: '#4338CA' },
+    { bg: '#ECFDF5', border: '#A7F3D0', label: '#065F46' },
+    { bg: '#FFF7ED', border: '#FED7AA', label: '#C2410C' },
+    { bg: '#F5F3FF', border: '#DDD6FE', label: '#5B21B6' },
+    { bg: '#F0F9FF', border: '#BAE6FD', label: '#0369A1' },
+    { bg: '#FFF1F2', border: '#FECDD3', label: '#9F1239' },
+    { bg: '#F0FDFA', border: '#99F6E4', label: '#0F766E' },
+    { bg: '#FFFBEB', border: '#FDE68A', label: '#92400E' },
+    { bg: '#FDF4FF', border: '#F5D0FE', label: '#86198F' },
+    { bg: '#ECFEFF', border: '#A5F3FC', label: '#0E7490' },
+  ];
+  // 전체보기 고정 컬럼: 전공(category), 교양(category), 실습(type)
+  const FV_COLUMNS = ['전공', '교양', '실습'] as const;
+
+  function getSemCreditByCol(semId: number, col: string) {
+    const ids = semesterSubjects[semId] ?? (semesterSubjects as Record<string, number[]>)[String(semId)] ?? [];
+    return ids.reduce((sum, sid) => {
+      const s = subjects.find((sub) => sub.id === sid || sub.id === Number(sid));
+      if (!s) return sum;
+      if (col === '전공') return s.category === '전공' ? sum + s.credits : sum;
+      if (col === '교양') return s.category === '교양' ? sum + s.credits : sum;
+      if (col === '실습') return s.type === '실습' ? sum + s.credits : sum;
+      return sum;
+    }, 0);
+  }
+
+  function getTotalCreditByCol(col: string) {
+    return semesters.reduce((sum, sem) => sum + getSemCreditByCol(sem.id, col), 0);
+  }
+
+  function getMonthRange(semId: number) {
+    const d = semesterDates[semId];
+    if (!d?.start && !d?.end) return '';
+    const fmt = (s: string) => `${new Date(s).getMonth() + 1}월`;
+    if (d.start && d.end) return `${fmt(d.start)}~${fmt(d.end)}`;
+    return d.start ? `${fmt(d.start)}~` : '';
+  }
+
+  if (showFullView) {
+    return (
+      <div className={styles.fv_wrap}>
+        {/* 전체보기 헤더 */}
+        <div className={styles.fv_top}>
+          <h2 className={styles.fv_title}>학습플랜 전체보기</h2>
+          <button className={styles.fv_back_btn} onClick={() => setShowFullView(false)}>
+            ← 돌아가기
+          </button>
+        </div>
+
+        {/* 학생 정보 */}
+        <div className={styles.fv_info_bar}>
+          <span>성명: {student.name}</span>
+          <span>과정: {student.courses?.name ?? '-'}</span>
+          <span>담당자: {student.manager_name ?? '-'}</span>
+        </div>
+
+        {/* 메인 테이블 */}
+        <table className={styles.fv_table}>
+          <thead>
+            <tr>
+              <th className={styles.fv_th} rowSpan={2}>온라인수업 일정</th>
+              <th className={styles.fv_th} rowSpan={2}>과목</th>
+              <th className={styles.fv_th} colSpan={FV_COLUMNS.length}>학점</th>
+            </tr>
+            <tr>
+              {FV_COLUMNS.map((label) => (
+                <th key={label} className={styles.fv_th}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {semesters.map((sem, idx) => {
+              const subjectIds = semesterSubjects[sem.id] ?? [];
+              const semSubjects = subjectIds.map((sid) => subjects.find((s) => s.id === sid)).filter(Boolean) as Subject[];
+              const ordinalLabel = (ORDINALS_KR[idx] ?? `${idx + 1}번째`) + '학기';
+              const monthRange = getMonthRange(sem.id);
+              const color = SEM_COLORS[idx % SEM_COLORS.length];
+              const leftCell = (
+                <td
+                  className={styles.fv_sem_cell}
+                  rowSpan={Math.max(semSubjects.length, 1) + 1}
+                  style={{ background: color.bg, borderColor: color.border }}
+                >
+                  <div className={styles.fv_sem_label} style={{ color: color.label }}>{ordinalLabel}</div>
+                  <div className={styles.fv_sem_meta}>{sem.year}년도 {sem.term}기</div>
+                  {monthRange && <div className={styles.fv_sem_meta}>{monthRange}</div>}
+                </td>
+              );
+              return (
+                <Fragment key={sem.id}>
+                  {semSubjects.length === 0 ? (
+                    <tr>
+                      {leftCell}
+                      <td className={styles.fv_empty} colSpan={1 + FV_COLUMNS.length}>등록된 과목이 없습니다</td>
+                    </tr>
+                  ) : (
+                    semSubjects.map((subject, subjIdx) => (
+                      <tr key={subject.id}>
+                        {subjIdx === 0 && leftCell}
+                        <td className={styles.fv_td}>{subject.name}</td>
+                        {FV_COLUMNS.map((col) => {
+                          const credits = col === '전공' && subject.category === '전공' ? subject.credits
+                            : col === '교양' && subject.category === '교양' ? subject.credits
+                            : col === '실습' && subject.type === '실습' ? subject.credits
+                            : 0;
+                          return <td key={col} className={styles.fv_credit_td}>{credits}</td>;
+                        })}
+                      </tr>
+                    ))
+                  )}
+                  <tr className={styles.fv_summary_row}>
+                    <td className={styles.fv_summary_label}>이수학점</td>
+                    {FV_COLUMNS.map((col) => (
+                      <td key={col} className={styles.fv_summary_credit}>
+                        <strong>{getSemCreditByCol(sem.id, col)}</strong>
+                      </td>
+                    ))}
+                  </tr>
+                </Fragment>
+              );
+            })}
+            <tr className={styles.fv_total_row}>
+              <td colSpan={2} className={styles.fv_total_label}>총 학점합계</td>
+              {FV_COLUMNS.map((col) => (
+                <td key={col} className={styles.fv_total_credit}>
+                  <strong>{getTotalCreditByCol(col)}</strong>
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page_wrap}>
 
@@ -543,18 +796,29 @@ export default function PlanPage() {
       {/* 헤더 카드 */}
       <div className={styles.header_card}>
         <div className={styles.header_left}>
-          <div className={styles.course_name}>{student.courses?.name ?? '과정 미배정'}</div>
+          <div className={styles.course_name}>{student.name}</div>
           <div className={styles.student_meta}>
-            {student.name}
+            {student.courses?.name ?? '과정 미배정'}
             {student.manager_name && <><span className={styles.meta_sep}>|</span>담당자 {student.manager_name}</>}
           </div>
         </div>
-        <div className={styles.save_indicator}>
-          {saving ? (
-            <><span className={styles.save_dot_saving} />저장 중...</>
-          ) : (
-            <><span className={styles.save_dot_saved} />저장됨</>
-          )}
+        <div className={styles.header_right_group}>
+          <button className={styles.header_doc_btn} onClick={() => setDocModal('credit')}>
+            학점이수내역{creditHistoryDocs.length > 0 && <span className={styles.header_doc_count}>{creditHistoryDocs.length}</span>}
+          </button>
+          <button className={styles.header_doc_btn} onClick={() => setDocModal('transcript')}>
+            성적 증명서{transcriptDocs.length > 0 && <span className={styles.header_doc_count}>{transcriptDocs.length}</span>}
+          </button>
+          <button className={styles.fullview_btn} onClick={() => setShowFullView(true)}>
+            전체보기
+          </button>
+          <div className={styles.save_indicator}>
+            {saving ? (
+              <><span className={styles.save_dot_saving} />저장 중...</>
+            ) : (
+              <><span className={styles.save_dot_saved} />저장됨</>
+            )}
+          </div>
         </div>
       </div>
 
@@ -739,6 +1003,71 @@ export default function PlanPage() {
         )}
       </div>
 
+      {/* ── 문서 모달 (학점이수내역 / 성적 증명서) ── */}
+      {docModal && (() => {
+        const isCredit = docModal === 'credit';
+        const docs     = isCredit ? creditHistoryDocs : transcriptDocs;
+        const title    = isCredit ? '학점이수내역' : '성적 증명서';
+        const uploading = isCredit ? uploadingCredit : uploadingTranscript;
+        const fileRef   = isCredit ? creditFileInputRef : transcriptFileInputRef;
+        const docType   = isCredit ? 'credit_history' as const : 'transcript' as const;
+        return (
+          <div className={styles.doc_modal_overlay} onClick={() => setDocModal(null)}>
+            <div className={styles.doc_modal} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.doc_modal_header}>
+                <span className={styles.doc_modal_title}>{title}</span>
+                <div className={styles.doc_modal_actions}>
+                  <button
+                    className={styles.doc_modal_upload_btn}
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? '업로드 중...' : '+ 파일 첨부'}
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileUpload(e, docType, fileRef)}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                  />
+                  <button className={styles.doc_modal_close} onClick={() => setDocModal(null)} aria-label="닫기">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              {docs.length === 0 ? (
+                <div className={styles.doc_modal_empty}>첨부된 파일이 없습니다</div>
+              ) : (
+                <div className={styles.doc_modal_list}>
+                  {docs.map((doc) => (
+                    <div key={doc.id} className={styles.doc_item}>
+                      <svg className={styles.doc_icon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                      <span className={styles.doc_name}>{doc.file_name}</span>
+                      {doc.file_size && <span className={styles.doc_size}>{formatFileSize(doc.file_size)}</span>}
+                      <button className={styles.doc_preview_btn} onClick={() => handlePreviewDocument(doc)} title="미리보기">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                      <button className={styles.item_remove_btn} onClick={() => handleDeleteDocument(doc)} aria-label="삭제">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── 실습예정 요건 트래커 ── */}
       {planConfig.practice && practiceCount && (
         <div className={styles.practice_tracker}>
@@ -818,24 +1147,28 @@ export default function PlanPage() {
                       ) : (
                         <div className={styles.subject_check_placeholder} />
                       )}
-                      <span className={styles.subject_name}>{subject.name}</span>
-                      <div className={styles.subject_badges}>
-                        <span className={styles.credit_badge}>{subject.credits}학점</span>
-                        <span className={`${styles.type_badge} ${subject.type === '실습' ? styles.type_badge_practice : ''}`}>{subject.type}</span>
-                        {subject.subject_type && (
-                          <span className={`${styles.subject_type_badge} ${subject.subject_type === '필수' ? styles.subject_type_required : styles.subject_type_elective}`}>
-                            {subject.subject_type}
-                          </span>
-                        )}
-                        {isCustom && (
-                          <button className={styles.subject_delete_btn}
-                            onClick={(e) => { e.stopPropagation(); handleDeleteSubject(subject.id); }}
-                            aria-label="과목 삭제">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                          </button>
-                        )}
+                      <div className={styles.subject_card_content}>
+                        <div className={styles.subject_card_top}>
+                          <span className={styles.subject_name}>{subject.name}</span>
+                          {isCustom && (
+                            <button className={styles.subject_delete_btn}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteSubject(subject.id); }}
+                              aria-label="과목 삭제">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        <div className={styles.subject_card_bottom}>
+                          <span className={styles.credit_badge}>{subject.credits}학점</span>
+                          <span className={`${styles.type_badge} ${subject.type === '실습' ? styles.type_badge_practice : ''}`}>{subject.type}</span>
+                          {subject.subject_type && (
+                            <span className={`${styles.subject_type_badge} ${subject.subject_type === '필수' ? styles.subject_type_required : styles.subject_type_elective}`}>
+                              {subject.subject_type}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -868,21 +1201,23 @@ export default function PlanPage() {
                     className={`${styles.semester_tab} ${isActive ? styles.semester_tab_active : ''}`}
                     onClick={() => setSelectedSemester(sem.id)}
                   >
-                    <span className={styles.tab_year}>{sem.year}년</span>
+                    <div className={styles.tab_top_row}>
+                      <span className={styles.tab_year}>{String(sem.year).slice(2)}년{count > 0 ? ` · ${count}과목` : ''}</span>
+                      {semesters.length > 1 && (
+                        <span
+                          className={styles.tab_delete_btn}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteSemester(sem.id); }}
+                          role="button"
+                          aria-label="학기 삭제"
+                        >
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </span>
+                      )}
+                    </div>
                     <span className={styles.tab_term}>{sem.term}학기</span>
-                    {count > 0 && <span className={styles.tab_count}>{count}</span>}
                   </button>
-                  {semesters.length > 1 && (
-                    <button
-                      className={styles.tab_delete_btn}
-                      onClick={(e) => { e.stopPropagation(); handleDeleteSemester(sem.id); }}
-                      aria-label="학기 삭제"
-                    >
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                      </svg>
-                    </button>
-                  )}
                 </div>
               );
             })}
@@ -1274,6 +1609,40 @@ export default function PlanPage() {
             <div className={styles.popup_footer}>
               <button className={styles.popup_cancel} onClick={() => setShowAddSemesterPopup(false)}>취소</button>
               <button className={styles.popup_confirm} onClick={handleConfirmAddSemester}>추가</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 파일 미리보기 모달 ── */}
+      {previewDoc && (
+        <div className={styles.popup_overlay} onClick={() => setPreviewDoc(null)}>
+          <div className={styles.preview_modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.preview_header}>
+              <span className={styles.preview_title}>{previewDoc.name}</span>
+              <button className={styles.popup_close} onClick={() => setPreviewDoc(null)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div className={styles.preview_body}>
+              {previewDoc.fileType === 'image' ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={previewDoc.url} alt={previewDoc.name} className={styles.preview_img} />
+              ) : previewDoc.fileType === 'pdf' ? (
+                <iframe src={previewDoc.url} className={styles.preview_iframe} title={previewDoc.name} />
+              ) : (
+                <div className={styles.preview_unsupported}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <p>이 파일 형식은 미리보기를 지원하지 않습니다</p>
+                  <a href={previewDoc.url} download={previewDoc.name} className={styles.preview_dl_link}>
+                    파일 다운로드
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>
