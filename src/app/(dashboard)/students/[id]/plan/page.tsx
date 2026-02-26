@@ -1179,7 +1179,7 @@ export default function PlanPage() {
             })}
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>총 학점</div>
-              <div className={styles.stat_value}>{totalCredits}<span className={styles.stat_unit}>/ 80</span></div>
+              <div className={styles.stat_value}>{totalCredits}<span className={styles.stat_unit}>/ {planConfig.totalTarget}</span></div>
               <div className={styles.stat_bar_wrap}><div className={styles.stat_bar} style={{ width: `${progress}%` }} /></div>
             </div>
           </>
@@ -1206,8 +1206,8 @@ export default function PlanPage() {
         )}
       </div>}
 
-      {/* ── 학점인정 자격증 ── */}
-      <div className={styles.credit_section}>
+      {/* ── 학점인정 자격증 — 학위과정만 표시 ── */}
+      {planConfig.isHighSchool && <div className={styles.credit_section}>
         <div className={styles.credit_section_header}>
           <div className={styles.credit_section_title_wrap}>
             <span className={styles.section_title}>학점인정 자격증</span>
@@ -1236,10 +1236,10 @@ export default function PlanPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* ── 독학사 ── */}
-      <div className={styles.credit_section}>
+      {/* ── 독학사 — 학위과정(isHighSchool)인 경우만 표시 ── */}
+      {planConfig.isHighSchool && <div className={styles.credit_section}>
         <div className={styles.credit_section_header}>
           <div className={styles.credit_section_title_wrap}>
             <span className={styles.section_title}>독학사</span>
@@ -1273,10 +1273,10 @@ export default function PlanPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      {/* ── 전적대 이수과목 ── */}
-      <div className={styles.credit_section}>
+      {/* ── 전적대 이수과목 — 학위과정만 표시 ── */}
+      {planConfig.isHighSchool && <div className={styles.credit_section}>
         <div className={styles.credit_section_header}>
           <div className={styles.credit_section_title_wrap}>
             <span className={styles.section_title}>전적대 이수과목</span>
@@ -1320,7 +1320,7 @@ export default function PlanPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── 문서 모달 (학점이수내역 / 성적 증명서) ── */}
       {docModal && (() => {

@@ -20,14 +20,14 @@ const DEFAULT_CENTERS = ['한평생교육', '서사평', '올티칭'];
 
 // 학과 필드: 전문대/대학교 재학/졸업/중퇴
 const EDUCATION_LEVELS_WITH_MAJOR: EducationLevel[] = [
-  '2년제졸업', '3년제졸업', '4년제졸업', '2년제중퇴', '3년제중퇴', '4년제중퇴',
+  '2년제졸업', '3년제졸업', '4년제졸업',
 ];
 
 // 희망학위 옵션 (교육수준별)
 function getDesiredDegreeOptions(level: EducationLevel | ''): DesiredDegree[] {
   if (!level || level === '4년제졸업') return [];
   if (level === '2년제졸업' || level === '3년제졸업') return ['없음', '학사'];
-  return ['없음', '전문학사', '학사']; // 고졸, 중퇴군
+  return ['전문학사', '학사']; // 고졸, 중퇴군 — 없음 제외
 }
 
 interface Props {
