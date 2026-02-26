@@ -1,3 +1,64 @@
+/* ── 탭 네비게이션 ── */
+.tab_bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 6px;
+  margin-bottom: 12px;
+}
+
+.tab_btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.tab_btn:hover {
+  background-color: #F5F8FF;
+  color: #3182F6;
+}
+
+.tab_btn_active {
+  background-color: #EFF6FF;
+  color: #3182F6;
+}
+
+.tab_badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 10px;
+  background-color: #DC2626;
+  color: #FFFFFF;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── 활동로그 ── */
+.log_action {
+  font-weight: 600;
+  color: #191F28;
+}
+
+.log_target_type {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
 /* ── 상단 요약 ── */
 .summary_row {
   display: grid;
@@ -346,6 +407,38 @@
   border-color: #FED7AA;
 }
 
+.badge_refund {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border-color: #FECACA;
+}
+
+/* ── 환불 목록 섹션 ── */
+.refund_section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.refund_section_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.refund_section_title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #DC2626;
+}
+
+.refund_section_count {
+  font-size: 13px;
+  font-weight: 500;
+  color: #9CA3AF;
+}
+
 /* ── 액션 버튼 ── */
 .action_group {
   display: flex;
@@ -396,6 +489,17 @@
 .action_btn_plan:hover {
   background: #D1FAE5;
   border-color: #059669;
+}
+
+.action_btn_restore {
+  color: #7C3AED;
+  border-color: #DDD6FE;
+  background: #F5F3FF;
+}
+
+.action_btn_restore:hover {
+  background: #EDE9FE;
+  border-color: #7C3AED;
 }
 
 /* ── 빈 상태 ── */

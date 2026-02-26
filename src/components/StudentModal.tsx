@@ -1,19 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { Student, Course, EducationCenter, StudentFormData } from '@/types';
+import type { Student, Course, EducationCenter, StudentFormData, EducationLevel, DesiredDegree } from '@/types';
 import styles from './StudentModal.module.css';
 
-const EDUCATION_LEVELS = ['고등학교졸업', '전문대졸업', '대학교재학', '대학교졸업'] as const;
-const STATUSES = ['등록', '수료'] as const;
+const EDUCATION_LEVELS: EducationLevel[] = [
+  '고졸', '2년제중퇴', '2년제졸업', '3년제중퇴', '3년제졸업', '4년제중퇴', '4년제졸업',
+];
+
+const STATUSES = ['등록', '수료', '환불'] as const;
 
 const DEFAULT_COURSES: Course[] = [
-  { id: 1, name: '사회복지사 2급 (신법)', created_at: '' },
-  { id: 2, name: '사회복지사 2급 (구법)', created_at: '' },
-  { id: 3, name: '사회복지사 (실습예정)', created_at: '' },
+  { id: 1, name: '사회복지사2급(구법)', created_at: '' },
+  { id: 2, name: '사회복지사2급(신법)', created_at: '' },
+  { id: 3, name: '사회복지사 실습', created_at: '' },
 ];
 
 const DEFAULT_CENTERS = ['한평생교육', '서사평', '올티칭'];
+
+// 학과 필드: 전문대/대학교 재학/졸업/중퇴
+const EDUCATION_LEVELS_WITH_MAJOR: EducationLevel[] = [
+  '2년제졸업', '3년제졸업', '4년제졸업', '2년제중퇴', '3년제중퇴', '4년제중퇴',
+];
+
+// 희망학위 옵션 (교육수준별)
+function getDesiredDegreeOptions(level: EducationLevel | ''): DesiredDegree[] {
+  if (!level || level === '4년제졸업') return [];
+  if (level === '2년제졸업' || level === '3년제졸업') return ['없음', '학사'];
+  return ['없음', '전문학사', '학사']; // 고졸, 중퇴군
+}
 
 interface Props {
   student?: Student | null;
@@ -27,6 +42,8 @@ const EMPTY_FORM: StudentFormData = {
   name: '',
   phone: '',
   education_level: '',
+  major: '',
+  desired_degree: '',
   status: '등록',
   course_id: '',
   manager_name: '',
@@ -41,6 +58,7 @@ const EMPTY_FORM: StudentFormData = {
 export default function StudentModal({ student, courses, centers, onClose, onSubmit }: Props) {
   const [form, setForm] = useState<StudentFormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
+  const [classStartInput, setClassStartInput] = useState('');
 
   const courseList = courses.length > 0 ? courses : DEFAULT_COURSES;
   const centerSuggestions = centers.length > 0 ? centers.map((c) => c.name) : DEFAULT_CENTERS;
@@ -51,6 +69,8 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
         name: student.name,
         phone: student.phone ?? '',
         education_level: student.education_level ?? '',
+        major: student.major ?? '',
+        desired_degree: student.desired_degree ?? '',
         status: student.status,
         course_id: student.course_id ?? '',
         manager_name: student.manager_name ?? '',
@@ -79,22 +99,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
     set('phone', formatted);
   }
 
-  // 개강반 자동 포맷: 숫자만 추출 → 2025년 1기
-  function handleClassStart(raw: string) {
-    const prevDigits = form.class_start.replace(/\D/g, '');
-    const newDigits = raw.replace(/\D/g, '').slice(0, 6);
-    // 포맷 문자(년/기/공백)를 지우려 할 때 → 숫자 하나 제거
-    const effectiveDigits =
-      newDigits === prevDigits && raw.length < form.class_start.length
-        ? newDigits.slice(0, -1)
-        : newDigits;
-    if (!effectiveDigits) { set('class_start', ''); return; }
-    if (effectiveDigits.length < 4) { set('class_start', effectiveDigits); return; }
-    if (effectiveDigits.length === 4) { set('class_start', `${effectiveDigits}년 `); return; }
-    set('class_start', `${effectiveDigits.slice(0, 4)}년 ${effectiveDigits.slice(4)}기`);
-  }
-
-  // 비용 콤마 포맷 (form.cost는 숫자 문자열로 저장)
+  // 비용 콤마 포맷
   function handleCost(raw: string) {
     const digits = raw.replace(/[^\d]/g, '');
     set('cost', digits);
@@ -104,6 +109,14 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
     if (!val) return '';
     return Number(val).toLocaleString();
   }
+
+  // 선택된 과정이 실습인지 확인
+  const selectedCourseName = courseList.find((c) => c.id === Number(form.course_id))?.name ?? '';
+  const isRehabCourse = selectedCourseName.includes('실습');
+
+  // 희망학위 옵션
+  const degreeOptions = isRehabCourse ? [] : getDesiredDegreeOptions(form.education_level);
+  const showDesiredDegree = degreeOptions.length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -147,11 +160,28 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
               <div className={styles.form_field}>
                 <label className={styles.form_label}>최종학력</label>
                 <select className={styles.form_select} value={form.education_level}
-                  onChange={(e) => set('education_level', e.target.value as StudentFormData['education_level'])}>
+                  onChange={(e) => {
+                    const val = e.target.value as EducationLevel | '';
+                    set('education_level', val);
+                    if (!EDUCATION_LEVELS_WITH_MAJOR.includes(val as EducationLevel)) {
+                      set('major', '');
+                    }
+                    // 4년제졸업이면 희망학위 초기화
+                    if (val === '4년제졸업') set('desired_degree', '');
+                  }}>
                   <option value="">선택</option>
                   {EDUCATION_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
+
+              {/* 학과(전공) — 전문대/대학 관련 학력만 표시 */}
+              {EDUCATION_LEVELS_WITH_MAJOR.includes(form.education_level as EducationLevel) && (
+                <div className={styles.form_field}>
+                  <label className={styles.form_label}>학과 (전공)</label>
+                  <input className={styles.form_input} placeholder="예: 사회복지학, 영어영문학"
+                    value={form.major} onChange={(e) => set('major', e.target.value)} />
+                </div>
+              )}
 
               {/* 상태 */}
               <div className={styles.form_field}>
@@ -162,17 +192,34 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                 </select>
               </div>
 
-              {/* 과정 */}
+              {/* 희망자격증과정 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>과정</label>
+                <label className={styles.form_label}>희망자격증과정</label>
                 <select className={styles.form_select} value={form.course_id}
-                  onChange={(e) => set('course_id', e.target.value ? Number(e.target.value) : '')}>
+                  onChange={(e) => {
+                    set('course_id', e.target.value ? Number(e.target.value) : '');
+                    // 실습 과정 선택 시 희망학위 초기화
+                    const name = courseList.find((c) => c.id === Number(e.target.value))?.name ?? '';
+                    if (name.includes('실습')) set('desired_degree', '');
+                  }}>
                   <option value="">선택</option>
                   {courseList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
 
-              {/* 담당자 - 직접 입력 */}
+              {/* 희망학위과정 — 실습 아닌 경우 + 4년제졸업 아닌 경우만 표시 */}
+              {showDesiredDegree && (
+                <div className={styles.form_field}>
+                  <label className={styles.form_label}>희망학위과정</label>
+                  <select className={styles.form_select} value={form.desired_degree}
+                    onChange={(e) => set('desired_degree', e.target.value as DesiredDegree | '')}>
+                    <option value="">선택</option>
+                    {degreeOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* 담당자 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>담당자</label>
                 <input className={styles.form_input} placeholder="담당자 이름 입력"
@@ -192,9 +239,60 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
               {/* 개강반 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>개강반</label>
-                <input className={styles.form_input} placeholder="예: 2025Y1X → 2025년도 1기"
-                  value={form.class_start} onChange={(e) => handleClassStart(e.target.value)} />
+                <label className={styles.form_label}>개강반 (기수)</label>
+                <div className={styles.class_start_wrap}>
+                  {form.class_start.split(',').filter(Boolean).map((tag, i) => (
+                    <span key={i} className={styles.class_start_tag}>
+                      {tag}
+                      <button type="button" className={styles.class_start_tag_remove}
+                        onClick={() => {
+                          const tags = form.class_start.split(',').filter(Boolean);
+                          const next = tags.filter((_, idx) => idx !== i);
+                          set('class_start', next.join(','));
+                        }}>✕</button>
+                    </span>
+                  ))}
+                  <input
+                    className={styles.class_start_input}
+                    placeholder="예: 202511 → 2025년 1학기 1기"
+                    value={classStartInput}
+                    inputMode="numeric"
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const prevDigits = classStartInput.replace(/\D/g, '');
+                      const newDigits = raw.replace(/\D/g, '').slice(0, 7);
+                      const effectiveDigits = newDigits === prevDigits && raw.length < classStartInput.length
+                        ? newDigits.slice(0, -1) : newDigits;
+                      if (!effectiveDigits) { setClassStartInput(''); return; }
+                      if (effectiveDigits.length < 4) { setClassStartInput(effectiveDigits); return; }
+                      if (effectiveDigits.length === 4) { setClassStartInput(`${effectiveDigits}년 `); return; }
+                      if (effectiveDigits.length === 5) { setClassStartInput(`${effectiveDigits.slice(0,4)}년 ${effectiveDigits.slice(4)}학기 `); return; }
+                      setClassStartInput(`${effectiveDigits.slice(0,4)}년 ${effectiveDigits.slice(4,5)}학기 ${effectiveDigits.slice(5)}기`);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = classStartInput.trim();
+                        const tags = form.class_start.split(',').filter(Boolean);
+                        if (val && !tags.includes(val)) {
+                          set('class_start', [...tags, val].join(','));
+                        }
+                        setClassStartInput('');
+                      }
+                    }}
+                  />
+                  {classStartInput.trim() && (
+                    <button type="button" className={styles.class_start_add_btn}
+                      onClick={() => {
+                        const val = classStartInput.trim();
+                        const tags = form.class_start.split(',').filter(Boolean);
+                        if (val && !tags.includes(val)) {
+                          set('class_start', [...tags, val].join(','));
+                        }
+                        setClassStartInput('');
+                      }}>+</button>
+                  )}
+                </div>
               </div>
 
               {/* 비용 */}
@@ -208,7 +306,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                 </div>
               </div>
 
-              {/* 목표취득예정일 */}
+              {/* 목표취득예정일 + 올케어 가입여부 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>목표취득예정일</label>
                 <input className={styles.form_input} type="date"
@@ -216,8 +314,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                   onChange={(e) => set('target_completion_date', e.target.value)} />
               </div>
 
-              {/* 올케어 가입여부 */}
-              <div className={`${styles.form_field} ${styles.form_field_full}`}>
+              <div className={styles.form_field}>
                 <label className={styles.form_label}>올케어 가입여부</label>
                 <div className={styles.allcare_group}>
                   <button type="button"

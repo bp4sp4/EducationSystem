@@ -1,7 +1,6 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
@@ -17,13 +16,6 @@ export default function DashboardLayoutClient({
   profile: Profile | null;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-
-  // super_admin일 때만 활동 로그 탭이 노출된다
-  const navItems = [
-    { href: '/students', label: '학생 관리' },
-    ...(profile?.role === 'super_admin' ? [{ href: '/admin/logs', label: '활동 로그' }] : []),
-  ];
 
   async function handleLogout() {
     const supabase = createClient();
@@ -61,20 +53,6 @@ export default function DashboardLayoutClient({
           </div>
         </div>
       </header>
-
-      <nav className={styles.nav}>
-        <div className={styles.nav_inner}>
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${styles.nav_item} ${pathname.startsWith(item.href) ? styles.nav_item_active : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </nav>
 
       <main className={styles.main}>{children}</main>
     </div>

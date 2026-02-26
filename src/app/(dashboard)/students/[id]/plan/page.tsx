@@ -43,6 +43,16 @@ interface DokaksaEntry {
   stage: string;
   subject_name: string;
   credits: number;
+  credit_type: '전공' | '일반' | '교양';
+}
+
+interface DokaksaPreset {
+  stage: string;
+  category: string;
+  name: string;
+  credits: number;
+  subject_type: '필수' | '선택';
+  sort_order: number;
 }
 
 interface StudentDocument {
@@ -59,6 +69,7 @@ interface Semester {
   id: number;
   year: string;
   term: number;
+  class_number: number;  // 기수 (1, 2, 3...)
   label: string;
   months: string;
 }
@@ -76,31 +87,10 @@ const DOKAKSA_STAGES = ['1단계', '2단계', '3단계', '4단계'] as const;
 
 const YEAR_OPTIONS = Array.from({ length: 8 }, (_, i) => String(2023 + i)); // 2023~2030
 
-// 사회복지사 2급 구법 과목 목록
-const GUBUP_SUBJECTS: { name: string; credits: number; subject_type: '필수' | '선택' }[] = [
-  { name: '사회복지학개론',      credits: 3, subject_type: '필수' },
-  { name: '인간행동과사회환경',   credits: 3, subject_type: '필수' },
-  { name: '사회복지정책론',      credits: 3, subject_type: '필수' },
-  { name: '사회복지법제론',      credits: 3, subject_type: '필수' },
-  { name: '사회복지실천론',      credits: 3, subject_type: '필수' },
-  { name: '사회복지실천기술론',   credits: 3, subject_type: '필수' },
-  { name: '사회복지조사론',      credits: 3, subject_type: '필수' },
-  { name: '사회복지행정론',      credits: 3, subject_type: '필수' },
-  { name: '지역사회복지론',      credits: 3, subject_type: '필수' },
-  { name: '사회복지현장실습',     credits: 3, subject_type: '필수' },
-  { name: '아동복지론',         credits: 3, subject_type: '선택' },
-  { name: '노인복지론',         credits: 3, subject_type: '선택' },
-  { name: '장애인복지론',        credits: 3, subject_type: '선택' },
-  { name: '가족복지론',         credits: 3, subject_type: '선택' },
-  { name: '정신건강사회복지론',   credits: 3, subject_type: '선택' },
-  { name: '학교사회복지론',      credits: 3, subject_type: '선택' },
-  { name: '의료사회복지론',      credits: 3, subject_type: '선택' },
-  { name: '청소년복지론',        credits: 3, subject_type: '선택' },
-];
 
 const INITIAL_SEMESTERS: Semester[] = [
-  { id: 0, year: '2025', term: 1, label: '', months: '' },
-  { id: 1, year: '2025', term: 2, label: '', months: '' },
+  { id: 0, year: '2025', term: 1, class_number: 1, label: '', months: '' },
+  { id: 1, year: '2025', term: 2, class_number: 1, label: '', months: '' },
 ];
 
 const TARGET_CREDITS  = 51;
@@ -128,9 +118,17 @@ interface PlanConfig {
   practice?: PracticeRequirement;
 }
 
-function getPlanConfig(educationLevel: string | null, courseName?: string | null): PlanConfig {
-  // 실습예정 과정은 학력과 무관하게 별도 레이아웃
-  if (courseName?.includes('실습예정')) {
+const JUNGTAE_GROUP = ['고졸', '2년제중퇴', '3년제중퇴', '4년제중퇴'];
+const TWOTHREE_GRAD = ['2년제졸업', '3년제졸업'];
+const GRAD_ALL = ['2년제졸업', '3년제졸업', '4년제졸업'];
+
+function getPlanConfig(
+  educationLevel: string | null,
+  courseName?: string | null,
+  desiredDegree?: string | null,
+): PlanConfig {
+  // 실습 과정은 학력과 무관하게 별도 레이아웃
+  if (courseName?.includes('실습')) {
     return {
       isHighSchool: false,
       totalTarget: 6,
@@ -142,7 +140,24 @@ function getPlanConfig(educationLevel: string | null, courseName?: string | null
     };
   }
 
-  if (educationLevel === '고등학교졸업') {
+  const level = educationLevel ?? '';
+
+  // 중퇴군 + 학사 → 140학점
+  if (JUNGTAE_GROUP.includes(level) && desiredDegree === '학사') {
+    return {
+      isHighSchool: true,
+      totalTarget: 140,
+      subjectTarget: null,
+      targets: [
+        { label: '전공', categories: ['전공'], target: 60, color: '#3182F6' },
+        { label: '교양', categories: ['교양'], target: 30, color: '#059669' },
+        { label: '일반', categories: ['일반'], target: 50, color: '#D97706' },
+      ],
+    };
+  }
+
+  // 중퇴군 → 없음/전문학사 → 80학점
+  if (JUNGTAE_GROUP.includes(level)) {
     return {
       isHighSchool: true,
       totalTarget: 80,
@@ -154,6 +169,34 @@ function getPlanConfig(educationLevel: string | null, courseName?: string | null
       ],
     };
   }
+
+  // 2년제/3년제 졸업 + 학사 → 140학점
+  if (TWOTHREE_GRAD.includes(level) && desiredDegree === '학사') {
+    return {
+      isHighSchool: true,
+      totalTarget: 140,
+      subjectTarget: null,
+      targets: [
+        { label: '전공', categories: ['전공'], target: 60, color: '#3182F6' },
+        { label: '교양', categories: ['교양'], target: 30, color: '#059669' },
+        { label: '일반', categories: ['일반'], target: 50, color: '#D97706' },
+      ],
+    };
+  }
+
+  // 졸업군 → 없음 → 51학점 전공만 (전적대 불필요)
+  if (GRAD_ALL.includes(level)) {
+    return {
+      isHighSchool: false,
+      totalTarget: 51,
+      subjectTarget: 8,
+      targets: [
+        { label: '전공', categories: ['전공'], target: 51, color: '#3182F6' },
+      ],
+    };
+  }
+
+  // 기본값
   return {
     isHighSchool: false,
     totalTarget: 51,
@@ -198,6 +241,7 @@ export default function PlanPage() {
 
   const [showPrevPopup,   setShowPrevPopup]   = useState(false);
   const [showGubupPopup,  setShowGubupPopup]  = useState(false);
+  const [gubupPresets,    setGubupPresets]    = useState<{ name: string; credits: number; subject_type: '필수' | '선택' }[]>([]);
   const [prevForm, setPrevForm] = useState({ category: '전공' as SubjectCategory, name: '', credits: 3 });
   const [cbQuery,      setCbQuery]      = useState('');
   const [cbResults,    setCbResults]    = useState<{ id: string; name: string }[]>([]);
@@ -208,7 +252,8 @@ export default function PlanPage() {
   const [certForm, setCertForm] = useState({ name: '', credits: 3, acquired_date: '' });
 
   const [showDokaksaPopup, setShowDokaksaPopup] = useState(false);
-  const [dokaksaForm, setDokaksaForm] = useState({ stage: '1단계' as typeof DOKAKSA_STAGES[number], subject_name: '', credits: 3 });
+  const [dokaksaForm, setDokaksaForm] = useState({ stage: '1단계' as typeof DOKAKSA_STAGES[number], subject_name: '', credits: 4 });
+  const [dokaksaPresets, setDokaksaPresets] = useState<DokaksaPreset[]>([]);
 
   const [showAddSemesterPopup, setShowAddSemesterPopup] = useState(false);
   const [newSemesterForm, setNewSemesterForm] = useState({ year: '2025', term: 1 });
@@ -229,8 +274,12 @@ export default function PlanPage() {
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; fileType: 'image' | 'pdf' | 'other' } | null>(null);
 
   const planConfig = useMemo(
-    () => getPlanConfig(student?.education_level ?? null, student?.courses?.name ?? null),
-    [student?.education_level, student?.courses?.name],
+    () => getPlanConfig(
+      student?.education_level ?? null,
+      student?.courses?.name ?? null,
+      student?.desired_degree ?? null,
+    ),
+    [student?.education_level, student?.courses?.name, student?.desired_degree],
   );
 
   // ── 팝업 열림 시 배경 스크롤 잠금 ───────────────────────────
@@ -253,19 +302,85 @@ export default function PlanPage() {
       supabase.from('student_dokaksa').select('*').eq('student_id', id).order('created_at'),
       supabase.from('student_plans').select('*').eq('student_id', id).maybeSingle(),
       supabase.from('student_documents').select('*').eq('student_id', id).order('created_at', { ascending: false }),
-    ]).then(([studentRes, subjectsRes, prevRes, certsRes, dokaksaRes, planRes, documentsRes]) => {
-      setStudent(studentRes.data as Student);
-      if (subjectsRes.data?.length)  setSubjects(subjectsRes.data as Subject[]);
+    ]).then(async ([studentRes, subjectsRes, prevRes, certsRes, dokaksaRes, planRes, documentsRes]) => {
+      const studentData = studentRes.data as Student;
+      setStudent(studentData);
+      let loadedSubjects = (subjectsRes.data ?? []) as Subject[];
+
+      // 신법/구법 과정이고 과목이 아직 없으면 프리셋 자동 삽입
+      const isSinbup = studentData?.courses?.name?.includes('신법');
+      const isGubup  = studentData?.courses?.name?.includes('구법');
+      const courseType = (isSinbup || isGubup) ? '신법' : null;
+      if (courseType && loadedSubjects.length === 0) {
+        const supabase = createClient();
+        const { data: presets } = await supabase
+          .from('subject_presets')
+          .select('name, credits, subject_type')
+          .eq('course_type', courseType)
+          .order('sort_order');
+        if (presets?.length) {
+          const rows = presets.map((p) => ({
+            category: '전공' as SubjectCategory,
+            name: p.name,
+            credits: p.credits,
+            type: '이론' as const,
+            subject_type: p.subject_type as '필수' | '선택',
+            student_id: id,
+          }));
+          const { data: inserted } = await supabase.from('subjects').insert(rows).select();
+          if (inserted) loadedSubjects = inserted as Subject[];
+        }
+      }
+
+      if (loadedSubjects.length) setSubjects(loadedSubjects);
       if (prevRes.data?.length)      setPrevSubjects(prevRes.data as PrevSubject[]);
       if (certsRes.data?.length)     setCreditCerts(certsRes.data as CreditCert[]);
       if (dokaksaRes.data?.length)   setDokaksaList(dokaksaRes.data as DokaksaEntry[]);
       if (documentsRes.data?.length) setDocuments(documentsRes.data as StudentDocument[]);
+
+      // class_start (쉼표 구분 다중 기수) → Semester 목록으로 파싱
+      function parseClassStart(classStart: string | null): Semester[] {
+        if (!classStart) return [];
+        return classStart.split(',').map(v => v.trim()).filter(Boolean).flatMap((val, idx) => {
+          const m = val.match(/(\d{4})년\s*(\d+)학기\s*(\d+)기/);
+          if (!m) return [];
+          return [{ id: idx, year: m[1], term: parseInt(m[2]), class_number: parseInt(m[3]), label: '', months: '' }];
+        });
+      }
+
+      // 저장된 플랜 또는 class_start 기반 학기 초기화
+      let finalSemesters: Semester[] = INITIAL_SEMESTERS;
       if (planRes.data) {
         const p = planRes.data;
-        if (p.semesters?.length)       setSemesters(p.semesters);
-        if (p.semester_subjects)       setSemesterSubjects(p.semester_subjects);
-        if (p.semester_dates)          setSemesterDates(p.semester_dates);
+        if (p.semesters?.length) {
+          finalSemesters = (p.semesters as Semester[]).map((s) => ({ ...s, class_number: s.class_number ?? 1 }));
+        }
+        if (p.semester_subjects) setSemesterSubjects(p.semester_subjects);
+        if (p.semester_dates)    setSemesterDates(p.semester_dates);
       }
+
+      // class_start에 있는 기수 중 finalSemesters에 없는 것 추가
+      const csItems = parseClassStart(studentData?.class_start ?? null);
+      if (csItems.length > 0) {
+        // class_start 기반이 하나도 반영 안 된 상태면 (저장된 플랜 없음) 교체
+        const hasAnyMatch = csItems.some(cs =>
+          finalSemesters.some(s => s.year === cs.year && s.term === cs.term && s.class_number === cs.class_number)
+        );
+        if (!hasAnyMatch && !planRes.data) {
+          // 저장된 플랜 없음 → class_start로 완전히 초기화
+          finalSemesters = csItems.map((cs, i) => ({ ...cs, id: i }));
+        } else {
+          // 저장된 플랜 있음 → 누락된 기수만 추가
+          let nextId = Math.max(...finalSemesters.map(s => s.id)) + 1;
+          for (const cs of csItems) {
+            const exists = finalSemesters.some(s => s.year === cs.year && s.term === cs.term && s.class_number === cs.class_number);
+            if (!exists) {
+              finalSemesters = [...finalSemesters, { ...cs, id: nextId++ }];
+            }
+          }
+        }
+      }
+      setSemesters(finalSemesters);
       setLoading(false);
       setTimeout(() => { isInitialized.current = true; }, 0);
     });
@@ -282,10 +397,12 @@ export default function PlanPage() {
     });
     // 전적대 과목
     prevSubjects.forEach((s) => { map[s.category] = (map[s.category] ?? 0) + s.credits; });
+    // 독학사 — credit_type(전공/일반/교양)을 카테고리로 합산
+    dokaksaList.forEach((d) => { map[d.credit_type] = (map[d.credit_type] ?? 0) + d.credits; });
     return map;
-  }, [assignedIds, subjects, prevSubjects]);
+  }, [assignedIds, subjects, prevSubjects, dokaksaList]);
 
-  // 자격증 + 독학사 학점 (전공으로 합산)
+  // 자격증 학점
   const certCredits    = useMemo(() => creditCerts.reduce((s, c) => s + c.credits, 0), [creditCerts]);
   const dokaksaCredits = useMemo(() => dokaksaList.reduce((s, d) => s + d.credits, 0), [dokaksaList]);
 
@@ -308,7 +425,7 @@ export default function PlanPage() {
     });
     return { required, elective };
   }, [assignedIds, subjects, prevSubjects, planConfig.practice]);
-  const totalCredits  = Object.values(creditsByCategory).reduce((a, b) => a + b, 0) + certCredits + dokaksaCredits;
+  const totalCredits  = Object.values(creditsByCategory).reduce((a, b) => a + b, 0) + certCredits;
   const progress      = Math.min(Math.round((totalCredits / planConfig.totalTarget) * 100), 100);
 
   // ── 과목 필터/그룹 ───────────────────────────────────────────
@@ -340,26 +457,48 @@ export default function PlanPage() {
 
   function handleSubjectClick(subjectId: number) {
     if (isSubjectUsed(subjectId)) return;
-    const current     = semesterSubjects[selectedSemester] ?? [];
-    const currentSem  = semesters.find((s) => s.id === selectedSemester);
-    const yearCount   = currentSem ? getYearSubjectCount(currentSem.year) : 0;
+    // 현재 선택된 기수(selectedSemester)에 추가
+    const targetSemId = selectedSemester;
+    const current     = semesterSubjects[targetSemId] ?? [];
+    const curSem      = semesters.find((s) => s.id === targetSemId);
 
-    if (current.length >= MAX_PER_SEMESTER) {
-      alert(`한 학기에 최대 ${MAX_PER_SEMESTER}과목까지 수강 가능합니다.`);
+    // 같은 학기 그룹(1기+2기+... 합산) 과목 수
+    const groupKey    = curSem ? `${curSem.year}-${curSem.term}` : '';
+    const groupSems   = semesters.filter((s) => `${s.year}-${s.term}` === groupKey);
+    const groupCount  = groupSems.reduce((sum, s) => sum + (semesterSubjects[s.id] ?? []).length, 0);
+
+    // 연간 과목 수
+    const yearCount   = curSem ? getYearSubjectCount(curSem.year) : 0;
+
+    if (groupCount >= MAX_PER_SEMESTER) {
+      alert(`${curSem?.term}학기 최대 ${MAX_PER_SEMESTER}과목까지 수강 가능합니다.\n(기수 합산 기준)`);
       return;
     }
     if (yearCount >= MAX_PER_YEAR) {
-      alert(`${currentSem?.year}년도에 최대 ${MAX_PER_YEAR}과목까지 수강 가능합니다.\n(1학기 + 2학기 합산 기준)`);
+      alert(`${curSem?.year}년도 최대 ${MAX_PER_YEAR}과목까지 수강 가능합니다.\n(1학기+2학기 합산 기준)`);
       return;
     }
-    setSemesterSubjects((prev) => ({ ...prev, [selectedSemester]: [...current, subjectId] }));
-  }
-
-  function handleRemoveAssigned(semesterId: number, subjectId: number) {
     setSemesterSubjects((prev) => ({
       ...prev,
-      [semesterId]: (prev[semesterId] ?? []).filter((sid) => sid !== subjectId),
+      [targetSemId]: [...current, subjectId],
     }));
+  }
+
+  function handleRemoveAssigned(_semesterId: number, subjectId: number) {
+    setSemesterSubjects((prev) => {
+      const next = { ...prev };
+      // 현재 선택된 semester의 year+term 그룹 내 어느 semester에 있는지 찾아서 삭제
+      const curSem = semesters.find((s) => s.id === selectedSemester) ?? semesters[0];
+      const groupKey = curSem ? `${curSem.year}-${curSem.term}` : '';
+      const groupSems = semesters.filter((s) => `${s.year}-${s.term}` === groupKey);
+      for (const sem of groupSems) {
+        if ((next[sem.id] ?? []).includes(subjectId)) {
+          next[sem.id] = (next[sem.id] ?? []).filter((id) => id !== subjectId);
+          break;
+        }
+      }
+      return next;
+    });
   }
 
   function handleDateChange(semesterId: number, field: 'start' | 'end', value: string) {
@@ -381,38 +520,87 @@ export default function PlanPage() {
     setShowAddSemesterPopup(true);
   }
 
+  // 학기별 기본 날짜: 1학기 11월 중순~5월 초 / 2학기 5월 중순~11월 초
+  function getDefaultDates(year: string, term: number): SemesterDates {
+    const y = parseInt(year);
+    if (term === 1) return { start: `${y - 1}-11-15`, end: `${y}-05-05` };
+    return { start: `${y}-05-15`, end: `${y}-11-05` };
+  }
+
   function handleConfirmAddSemester() {
     const newId = (semesters[semesters.length - 1]?.id ?? -1) + 1;
-    setSemesters((prev) => [...prev, { id: newId, year: newSemesterForm.year, term: newSemesterForm.term, label: '', months: '' }]);
+    const sameGroup = semesters.filter(s => s.year === newSemesterForm.year && s.term === newSemesterForm.term);
+    const classNumber = sameGroup.length + 1;
+    setSemesters((prev) => [...prev, { id: newId, year: newSemesterForm.year, term: newSemesterForm.term, class_number: classNumber, label: '', months: '' }]);
+    setSemesterDates((prev) => ({ ...prev, [newId]: getDefaultDates(newSemesterForm.year, newSemesterForm.term) }));
     setSelectedSemester(newId);
     setShowAddSemesterPopup(false);
   }
 
   function handleDeleteSemester(semId: number) {
     if (semesters.length <= 1) return;
-    setSemesters((prev) => prev.filter((s) => s.id !== semId));
+    const remaining = semesters.filter((s) => s.id !== semId);
+    setSemesters(remaining);
     setSemesterSubjects((prev) => { const next = { ...prev }; delete next[semId]; return next; });
     setSemesterDates((prev) => { const next = { ...prev }; delete next[semId]; return next; });
+    // 삭제된 semester가 선택된 경우, 남은 그룹의 첫 번째 또는 마지막 semester로 이동
     if (selectedSemester === semId) {
-      const remaining = semesters.filter((s) => s.id !== semId);
-      setSelectedSemester(remaining[remaining.length - 1]?.id ?? 0);
+      const deletedSem = semesters.find((s) => s.id === semId);
+      if (deletedSem) {
+        const groupKey = `${deletedSem.year}-${deletedSem.term}`;
+        const remainingGroup = remaining.filter((s) => `${s.year}-${s.term}` === groupKey);
+        if (remainingGroup.length > 0) {
+          setSelectedSemester(remainingGroup[0].id);
+        } else {
+          setSelectedSemester(remaining[remaining.length - 1]?.id ?? 0);
+        }
+      } else {
+        setSelectedSemester(remaining[remaining.length - 1]?.id ?? 0);
+      }
     }
   }
 
-  // ── 핸들러: 구법 과목 추가 (DB) ─────────────────────────────
-  async function handleAddGubupSubject(subj: typeof GUBUP_SUBJECTS[number]) {
+  function handleAddKisu() {
+    const curSem = semesters.find((s) => s.id === selectedSemester) ?? semesters[0];
+    const newId = (semesters[semesters.length - 1]?.id ?? -1) + 1;
+    const sameGroup = semesters.filter((s) => s.year === curSem.year && s.term === curSem.term);
+    const classNumber = sameGroup.length + 1;
+    setSemesters((prev) => [...prev, {
+      id: newId,
+      year: curSem.year,
+      term: curSem.term,
+      class_number: classNumber,
+      label: '',
+      months: '',
+    }]);
+    setSemesterDates((prev) => ({ ...prev, [newId]: getDefaultDates(curSem.year, curSem.term) }));
+  }
+
+  // ── 구법 프리셋 fetch ─────────────────────────────────────────
+  async function openGubupPopup() {
+    setShowGubupPopup(true);
+    if (gubupPresets.length > 0) return;
     const supabase = createClient();
-    const { data, error } = await supabase.from('subjects').insert({
+    const { data } = await supabase
+      .from('subject_presets')
+      .select('name, credits, subject_type')
+      .eq('course_type', '구법')
+      .order('sort_order');
+    if (data) setGubupPresets(data as { name: string; credits: number; subject_type: '필수' | '선택' }[]);
+  }
+
+  // ── 핸들러: 구법 과목 추가 → 전적대 이수과목에 등록 ─────────
+  async function handleAddGubupSubject(subj: { name: string; credits: number; subject_type: '필수' | '선택' }) {
+    const supabase = createClient();
+    const { data, error } = await supabase.from('student_prev_subjects').insert({
+      student_id: id,
       category: '전공',
       name: subj.name,
       credits: subj.credits,
-      type: '이론',
-      subject_type: subj.subject_type,
-      student_id: id,
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
-    setSubjects((prev) => [...prev, data as Subject]);
-    logActivity({ action: '구법 과목 추가', target_type: 'subject', target_name: subj.name, detail: student?.name });
+    setPrevSubjects((prev) => [...prev, data as PrevSubject]);
+    logActivity({ action: '구법 과목 추가', target_type: 'prev_subject', target_name: subj.name, detail: student?.name });
   }
 
   // ── 핸들러: 과목 수기 추가 (DB) ─────────────────────────────
@@ -518,6 +706,47 @@ export default function PlanPage() {
     const { error } = await supabase.from('student_credit_certs').delete().eq('id', certId);
     if (error) { alert(`삭제 실패: ${error.message}`); return; }
     setCreditCerts((prev) => prev.filter((c) => c.id !== certId));
+  }
+
+  // ── 독학사 팝업 열기 + 프리셋 fetch ─────────────────────────
+  async function openDokaksaPopup() {
+    setShowDokaksaPopup(true);
+    if (dokaksaPresets.length > 0) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('dokaksa_presets')
+      .select('stage, category, name, credits, subject_type, sort_order')
+      .order('sort_order');
+    if (data) setDokaksaPresets(data as DokaksaPreset[]);
+  }
+
+  // ── 핸들러: 프리셋에서 독학사 과목 추가/제거 ────────────────
+  async function handleToggleDokaksaPreset(preset: DokaksaPreset) {
+    const existing = dokaksaList.find(
+      (d) => d.stage === dokaksaForm.stage && d.subject_name === preset.name,
+    );
+    if (existing) {
+      handleDeleteDokaksa(existing.id);
+      return;
+    }
+    // 1단계 → 교양, 2/3단계 전공일치 → 전공, 아니면 일반
+    const credit_type: '전공' | '일반' | '교양' =
+      dokaksaForm.stage === '1단계'
+        ? '교양'
+        : student?.major && preset.category === student.major
+          ? '전공'
+          : '일반';
+    const supabase = createClient();
+    const { data, error } = await supabase.from('student_dokaksa').insert({
+      student_id: id,
+      stage: dokaksaForm.stage,
+      subject_name: preset.name,
+      credits: preset.credits,
+      credit_type,
+    }).select().single();
+    if (error) { alert(`추가 실패: ${error.message}`); return; }
+    setDokaksaList((prev) => [...prev, data as DokaksaEntry]);
+    logActivity({ action: '독학사 추가', target_type: 'dokaksa', target_name: preset.name, detail: `${dokaksaForm.stage} ${credit_type} / ${student?.name}` });
   }
 
   // ── 핸들러: 독학사 (DB) ─────────────────────────────────────
@@ -639,9 +868,15 @@ export default function PlanPage() {
     return <div className={styles.page_wrap}><div className={styles.loading_text}>학생을 찾을 수 없습니다.</div></div>;
   }
 
-  const currentSemester           = semesters.find((s) => s.id === selectedSemester) ?? semesters[0];
-  const currentSemesterSubjectIds = semesterSubjects[selectedSemester] ?? [];
-  const currentDates              = semesterDates[selectedSemester] ?? { start: '', end: '' };
+  const currentSemester = semesters.find((s) => s.id === selectedSemester) ?? semesters[0];
+  const currentDates    = semesterDates[selectedSemester] ?? { start: '', end: '' };
+
+  // 같은 year+term 그룹의 모든 학기
+  const selectedGroupKey       = currentSemester ? `${currentSemester.year}-${currentSemester.term}` : '';
+  const selectedGroupSemesters = semesters.filter((s) => `${s.year}-${s.term}` === selectedGroupKey);
+
+  // 그룹의 모든 과목 합산
+  const currentSemesterSubjectIds = selectedGroupSemesters.flatMap((s) => semesterSubjects[s.id] ?? []);
 
   // ── 전체보기 ────────────────────────────────────────────────
   const ORDINALS_KR = ['첫', '두번째', '세번째', '네번째', '다섯번째', '여섯번째', '일곱번째', '여덟번째', '아홉번째', '열번째'];
@@ -717,56 +952,128 @@ export default function PlanPage() {
             </tr>
           </thead>
           <tbody>
-            {semesters.map((sem, idx) => {
-              const subjectIds = semesterSubjects[sem.id] ?? [];
-              const semSubjects = subjectIds.map((sid) => subjects.find((s) => s.id === sid)).filter(Boolean) as Subject[];
-              const ordinalLabel = (ORDINALS_KR[idx] ?? `${idx + 1}번째`) + '학기';
-              const monthRange = getMonthRange(sem.id);
-              const color = SEM_COLORS[idx % SEM_COLORS.length];
-              const leftCell = (
-                <td
-                  className={styles.fv_sem_cell}
-                  rowSpan={Math.max(semSubjects.length, 1) + 1}
-                  style={{ background: color.bg, borderColor: color.border }}
-                >
-                  <div className={styles.fv_sem_label} style={{ color: color.label }}>{ordinalLabel}</div>
-                  <div className={styles.fv_sem_meta}>{sem.year}년도 {sem.term}기</div>
-                  {monthRange && <div className={styles.fv_sem_meta}>{monthRange}</div>}
-                </td>
-              );
-              return (
-                <Fragment key={sem.id}>
-                  {semSubjects.length === 0 ? (
-                    <tr>
-                      {leftCell}
-                      <td className={styles.fv_empty} colSpan={1 + FV_COLUMNS.length}>등록된 과목이 없습니다</td>
-                    </tr>
-                  ) : (
-                    semSubjects.map((subject, subjIdx) => (
-                      <tr key={subject.id}>
-                        {subjIdx === 0 && leftCell}
-                        <td className={styles.fv_td}>{subject.name}</td>
-                        {FV_COLUMNS.map((col) => {
-                          const credits = col === '전공' && subject.category === '전공' ? subject.credits
-                            : col === '교양' && subject.category === '교양' ? subject.credits
-                            : col === '실습' && subject.type === '실습' ? subject.credits
-                            : 0;
-                          return <td key={col} className={styles.fv_credit_td}>{credits}</td>;
-                        })}
+            {(() => {
+              // 같은 year+term끼리 그룹화 (순서 유지)
+              const groups: Semester[][] = [];
+              const groupKeys: string[] = [];
+              semesters.forEach((s) => {
+                const key = `${s.year}-${s.term}`;
+                const existing = groupKeys.indexOf(key);
+                if (existing === -1) { groupKeys.push(key); groups.push([s]); }
+                else { groups[existing].push(s); }
+              });
+
+              return groups.map((group, groupIdx) => {
+                const rep = group[0];
+                const ordinalLabel = (ORDINALS_KR[groupIdx] ?? `${groupIdx + 1}번째`) + '학기';
+                const color = SEM_COLORS[groupIdx % SEM_COLORS.length];
+                const multiKisu = group.length > 1;
+
+                // 전체 rowSpan 계산
+                const totalRows = group.reduce((sum, sem) => {
+                  const subCount = Math.max((semesterSubjects[sem.id] ?? []).length, 1);
+                  return sum + (multiKisu ? 1 : 0) + subCount + 1;
+                }, 0);
+
+                const leftCell = (
+                  <td
+                    className={styles.fv_sem_cell}
+                    rowSpan={totalRows}
+                    style={{ background: color.bg, borderColor: color.border }}
+                  >
+                    <div className={styles.fv_sem_label} style={{ color: color.label }}>{ordinalLabel}</div>
+                    <div className={styles.fv_sem_meta}>{rep.year}년도 {rep.term}학기</div>
+                  </td>
+                );
+
+                let leftCellPlaced = false;
+                const rows: React.ReactNode[] = group.flatMap((sem) => {
+                  const subjectIds = semesterSubjects[sem.id] ?? [];
+                  const semSubjects = subjectIds.map((sid) => subjects.find((s) => s.id === sid)).filter(Boolean) as Subject[];
+                  const monthRange = getMonthRange(sem.id);
+                  const result: React.ReactNode[] = [];
+
+                  if (multiKisu) {
+                    // 기수 헤더 행
+                    result.push(
+                      <tr key={`kisu-${sem.id}`} className={styles.fv_kisu_row}>
+                        {!leftCellPlaced && leftCell}
+                        <td colSpan={1 + FV_COLUMNS.length} className={styles.fv_kisu_label}>
+                          {sem.class_number}기{monthRange ? ` · ${monthRange}` : ''}
+                        </td>
                       </tr>
-                    ))
-                  )}
-                  <tr className={styles.fv_summary_row}>
-                    <td className={styles.fv_summary_label}>이수학점</td>
-                    {FV_COLUMNS.map((col) => (
-                      <td key={col} className={styles.fv_summary_credit}>
-                        <strong>{getSemCreditByCol(sem.id, col)}</strong>
-                      </td>
-                    ))}
-                  </tr>
-                </Fragment>
-              );
-            })}
+                    );
+                    leftCellPlaced = true;
+
+                    if (semSubjects.length === 0) {
+                      result.push(
+                        <tr key={`empty-${sem.id}`}>
+                          <td className={styles.fv_empty} colSpan={1 + FV_COLUMNS.length}>등록된 과목이 없습니다</td>
+                        </tr>
+                      );
+                    } else {
+                      semSubjects.forEach((subject) => {
+                        result.push(
+                          <tr key={`subj-${sem.id}-${subject.id}`}>
+                            <td className={styles.fv_td}>{subject.name}</td>
+                            {FV_COLUMNS.map((col) => {
+                              const credits = col === '전공' && subject.category === '전공' ? subject.credits
+                                : col === '교양' && subject.category === '교양' ? subject.credits
+                                : col === '실습' && subject.type === '실습' ? subject.credits
+                                : 0;
+                              return <td key={col} className={styles.fv_credit_td}>{credits}</td>;
+                            })}
+                          </tr>
+                        );
+                      });
+                    }
+                  } else {
+                    // 단일 기수 — 기존 방식
+                    if (semSubjects.length === 0) {
+                      result.push(
+                        <tr key={`empty-${sem.id}`}>
+                          {!leftCellPlaced && leftCell}
+                          <td className={styles.fv_empty} colSpan={1 + FV_COLUMNS.length}>등록된 과목이 없습니다</td>
+                        </tr>
+                      );
+                      leftCellPlaced = true;
+                    } else {
+                      semSubjects.forEach((subject, subjIdx) => {
+                        result.push(
+                          <tr key={`subj-${sem.id}-${subject.id}`}>
+                            {subjIdx === 0 && !leftCellPlaced && leftCell}
+                            <td className={styles.fv_td}>{subject.name}</td>
+                            {FV_COLUMNS.map((col) => {
+                              const credits = col === '전공' && subject.category === '전공' ? subject.credits
+                                : col === '교양' && subject.category === '교양' ? subject.credits
+                                : col === '실습' && subject.type === '실습' ? subject.credits
+                                : 0;
+                              return <td key={col} className={styles.fv_credit_td}>{credits}</td>;
+                            })}
+                          </tr>
+                        );
+                        if (subjIdx === 0) leftCellPlaced = true;
+                      });
+                    }
+                  }
+
+                  // 이수학점 소계
+                  result.push(
+                    <tr key={`summary-${sem.id}`} className={styles.fv_summary_row}>
+                      <td className={styles.fv_summary_label}>이수학점</td>
+                      {FV_COLUMNS.map((col) => (
+                        <td key={col} className={styles.fv_summary_credit}>
+                          <strong>{getSemCreditByCol(sem.id, col)}</strong>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                  return result;
+                });
+
+                return <Fragment key={`group-${rep.year}-${rep.term}`}>{rows}</Fragment>;
+              });
+            })()}
             <tr className={styles.fv_total_row}>
               <td colSpan={2} className={styles.fv_total_label}>총 학점합계</td>
               {FV_COLUMNS.map((col) => (
@@ -829,8 +1136,15 @@ export default function PlanPage() {
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <span className={styles.edu_banner_text}>
-            <strong>고등학교졸업</strong> — 전공 45 + 교양 15 + 일반 20 = 총 80학점
-            <span className={styles.edu_banner_sub}> (교양을 35학점으로 늘려 일반 대체 가능)</span>
+            <strong>{student.education_level ?? ''}</strong>
+            {student.desired_degree && student.desired_degree !== '없음' && (
+              <span> / 희망학위: {student.desired_degree}</span>
+            )}
+            {' — '}
+            {planConfig.targets.map((t) => `${t.label} ${t.target}`).join(' + ')} = 총 {planConfig.totalTarget}학점
+            {planConfig.totalTarget === 80 && (
+              <span className={styles.edu_banner_sub}> (교양을 35학점으로 늘려 일반 대체 가능)</span>
+            )}
           </span>
         </div>
       ) : (
@@ -933,7 +1247,7 @@ export default function PlanPage() {
               <span className={styles.section_count_badge}>{dokaksaCredits}학점</span>
             )}
           </div>
-          <button className={styles.section_add_btn} onClick={() => setShowDokaksaPopup(true)}>+ 추가</button>
+          <button className={styles.section_add_btn} onClick={() => openDokaksaPopup()}>+ 추가</button>
         </div>
 
         {dokaksaList.length === 0 ? (
@@ -943,6 +1257,11 @@ export default function PlanPage() {
             {dokaksaList.map((d) => (
               <div key={d.id} className={styles.credit_item}>
                 <span className={styles.stage_badge}>{d.stage}</span>
+                <span className={
+                  d.credit_type === '전공' ? styles.dokaksa_major_badge
+                  : d.credit_type === '교양' ? styles.dokaksa_gyoyang_badge
+                  : styles.dokaksa_general_badge
+                }>{d.credit_type}</span>
                 <span className={styles.credit_item_name}>{d.subject_name}</span>
                 <span className={styles.credit_badge}>{d.credits}학점</span>
                 <button className={styles.item_remove_btn} onClick={() => handleDeleteDokaksa(d.id)} aria-label="삭제">
@@ -969,7 +1288,7 @@ export default function PlanPage() {
           </div>
           <div className={styles.section_btn_group}>
             {student.courses?.name?.includes('구법') && (
-              <button className={styles.section_add_btn_gubup} onClick={() => setShowGubupPopup(true)}>
+              <button className={styles.section_add_btn_gubup} onClick={openGubupPopup}>
                 구법 과목 추가
               </button>
             )}
@@ -1192,78 +1511,178 @@ export default function PlanPage() {
           </div>
 
           <div className={styles.semester_tabs}>
-            {semesters.map((sem) => {
-              const count = (semesterSubjects[sem.id] ?? []).length;
-              const isActive = selectedSemester === sem.id;
-              return (
-                <div key={sem.id} className={`${styles.semester_tab_wrap} ${isActive ? styles.semester_tab_wrap_active : ''}`}>
-                  <button
-                    className={`${styles.semester_tab} ${isActive ? styles.semester_tab_active : ''}`}
-                    onClick={() => setSelectedSemester(sem.id)}
-                  >
-                    <div className={styles.tab_top_row}>
-                      <span className={styles.tab_year}>{String(sem.year).slice(2)}년{count > 0 ? ` · ${count}과목` : ''}</span>
-                      {semesters.length > 1 && (
-                        <span
-                          className={styles.tab_delete_btn}
-                          onClick={(e) => { e.stopPropagation(); handleDeleteSemester(sem.id); }}
-                          role="button"
-                          aria-label="학기 삭제"
-                        >
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                          </svg>
-                        </span>
-                      )}
-                    </div>
-                    <span className={styles.tab_term}>{sem.term}학기</span>
-                  </button>
-                </div>
-              );
-            })}
+            {/* 탭: year+term별로 그룹화하여 ONE 탭 */}
+            {(() => {
+              // 그룹 맵 생성 (순서 유지)
+              const groups = new Map<string, Semester[]>();
+              semesters.forEach((s) => {
+                const key = `${s.year}-${s.term}`;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(s);
+              });
+
+              return Array.from(groups.entries()).map(([groupKey, groupSems]) => {
+                const rep        = groupSems[0]; // 대표 학기
+                const isActive   = selectedGroupKey === groupKey;
+                const totalCount = groupSems.reduce((sum, s) => sum + (semesterSubjects[s.id] ?? []).length, 0);
+                return (
+                  <div key={groupKey} className={`${styles.semester_tab_wrap} ${isActive ? styles.semester_tab_wrap_active : ''}`}>
+                    <button
+                      className={`${styles.semester_tab} ${isActive ? styles.semester_tab_active : ''}`}
+                      onClick={() => setSelectedSemester(groupSems.find(s => s.id === selectedSemester) ? selectedSemester : groupSems[0].id)}
+                    >
+                      <div className={styles.tab_top_row}>
+                        <span className={styles.tab_year}>{String(rep.year).slice(2)}년{totalCount > 0 ? ` · ${totalCount}과목` : ''}</span>
+                        {semesters.length > groupSems.length && (
+                          <span
+                            className={styles.tab_delete_btn}
+                            onClick={(e) => { e.stopPropagation(); groupSems.forEach(s => handleDeleteSemester(s.id)); }}
+                            role="button"
+                            aria-label="학기 삭제"
+                          >
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                          </span>
+                        )}
+                      </div>
+                      <span className={styles.tab_term}>{rep.term}학기</span>
+                    </button>
+                  </div>
+                );
+              });
+            })()}
           </div>
 
           <div className={styles.semester_detail}>
             <div className={styles.semester_title_big}>{currentSemester.year}년 {currentSemester.term}학기</div>
 
-            <div className={styles.date_row}>
-              <div className={styles.date_field}>
-                <label className={styles.date_label} htmlFor={`start-${selectedSemester}`}>학기 시작일</label>
-                <input id={`start-${selectedSemester}`} className={styles.date_input} type="date"
-                  value={currentDates.start} onChange={(e) => handleDateChange(selectedSemester, 'start', e.target.value)} />
-              </div>
-              <div className={styles.date_field}>
-                <label className={styles.date_label} htmlFor={`end-${selectedSemester}`}>학기 종료일</label>
-                <input id={`end-${selectedSemester}`} className={styles.date_input} type="date"
-                  value={currentDates.end} onChange={(e) => handleDateChange(selectedSemester, 'end', e.target.value)} />
-              </div>
-            </div>
+            {selectedGroupSemesters.map((sem) => {
+              const dates = semesterDates[sem.id] ?? { start: '', end: '' };
+              const isActivKisu = selectedSemester === sem.id;
+              const multiKisu = selectedGroupSemesters.length > 1;
+              return (
+                <div
+                  key={sem.id}
+                  className={`${styles.kisu_date_block} ${multiKisu && isActivKisu ? styles.kisu_date_block_active : ''}`}
+                  onClick={() => multiKisu && setSelectedSemester(sem.id)}
+                  style={multiKisu ? { cursor: 'pointer' } : undefined}
+                >
+                  {multiKisu && (
+                    <div className={styles.kisu_label_row}>
+                      <span className={`${styles.kisu_label} ${isActivKisu ? styles.kisu_label_active : ''}`}>
+                        {sem.class_number}기
+                      </span>
+                      {isActivKisu && (
+                        <span className={styles.kisu_active_badge}>과목 추가 중</span>
+                      )}
+                      <button
+                        className={styles.kisu_delete_btn}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteSemester(sem.id); }}
+                        title={`${sem.class_number}기 삭제`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  <div className={styles.date_row} onClick={(e) => e.stopPropagation()}>
+                    <div className={styles.date_field}>
+                      <label className={styles.date_label} htmlFor={`start-${sem.id}`}>학기 시작일</label>
+                      <input id={`start-${sem.id}`} className={styles.date_input} type="date"
+                        value={dates.start} onChange={(e) => handleDateChange(sem.id, 'start', e.target.value)} />
+                    </div>
+                    <div className={styles.date_field}>
+                      <label className={styles.date_label} htmlFor={`end-${sem.id}`}>학기 종료일</label>
+                      <input id={`end-${sem.id}`} className={styles.date_input} type="date"
+                        value={dates.end} onChange={(e) => handleDateChange(sem.id, 'end', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            <button className={styles.kisu_add_btn} onClick={handleAddKisu}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              기수 추가
+            </button>
 
             {currentSemesterSubjectIds.length === 0 ? (
               <div className={styles.semester_empty}>왼쪽에서 과목을 선택하세요</div>
             ) : (
               <div className={styles.assigned_list}>
-                {currentSemesterSubjectIds.map((subjectId) => {
-                  const subject = subjects.find((s) => s.id === subjectId);
-                  if (!subject) return null;
-                  return (
-                    <div key={subjectId} className={styles.assigned_item}>
-                      <div className={styles.assigned_info}>
-                        <span className={styles.assigned_name}>{subject.name}</span>
-                        <div className={styles.subject_badges}>
-                          <span className={styles.credit_badge}>{subject.credits}학점</span>
-                          <span className={`${styles.type_badge} ${subject.type === '실습' ? styles.type_badge_practice : ''}`}>{subject.type}</span>
-                        </div>
-                      </div>
-                      <button className={styles.assigned_remove_btn}
-                        onClick={() => handleRemoveAssigned(selectedSemester, subjectId)} aria-label="삭제">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      </button>
+                {selectedGroupSemesters.length > 1
+                  ? /* 기수가 여러 개면 기수별 칩 그룹 */
+                    selectedGroupSemesters.map((sem, gi) => {
+                      const semIds = semesterSubjects[sem.id] ?? [];
+                      return (
+                        <Fragment key={sem.id}>
+                          <div className={`${styles.assigned_kisu_header} ${gi > 0 ? styles.assigned_kisu_header_border : ''}`}>
+                            <span className={styles.assigned_kisu_title}>{sem.class_number}기</span>
+                            <span className={styles.assigned_kisu_count}>{semIds.length}과목</span>
+                          </div>
+                          {semIds.length === 0 ? (
+                            <div className={styles.assigned_kisu_empty}>과목 없음</div>
+                          ) : (
+                            <div className={styles.assigned_chips}>
+                              {semIds.map((subjectId) => {
+                                const subject = subjects.find((s) => s.id === subjectId);
+                                if (!subject) return null;
+                                return (
+                                  <div key={subjectId} className={styles.assigned_item}>
+                                    <div className={styles.assigned_info}>
+                                      <span className={styles.assigned_name}>{subject.name}</span>
+                                      {subject.subject_type && (
+                                        <span className={`${styles.subject_type_badge} ${subject.subject_type === '필수' ? styles.subject_type_required : styles.subject_type_elective}`}>
+                                          {subject.subject_type}
+                                        </span>
+                                      )}
+                                      <span className={styles.credit_badge}>{subject.credits}학점</span>
+                                    </div>
+                                    <button className={styles.assigned_remove_btn}
+                                      onClick={() => handleRemoveAssigned(sem.id, subjectId)} aria-label="삭제">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </Fragment>
+                      );
+                    })
+                  : /* 기수 1개 — 칩 레이아웃 */
+                    <div className={styles.assigned_chips}>
+                      {currentSemesterSubjectIds.map((subjectId) => {
+                        const subject = subjects.find((s) => s.id === subjectId);
+                        if (!subject) return null;
+                        return (
+                          <div key={subjectId} className={styles.assigned_item}>
+                            <div className={styles.assigned_info}>
+                              <span className={styles.assigned_name}>{subject.name}</span>
+                              {subject.subject_type && (
+                                <span className={`${styles.subject_type_badge} ${subject.subject_type === '필수' ? styles.subject_type_required : styles.subject_type_elective}`}>
+                                  {subject.subject_type}
+                                </span>
+                              )}
+                              <span className={styles.credit_badge}>{subject.credits}학점</span>
+                            </div>
+                            <button className={styles.assigned_remove_btn}
+                              onClick={() => handleRemoveAssigned(selectedSemester, subjectId)} aria-label="삭제">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                              </svg>
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                }
               </div>
             )}
           </div>
@@ -1343,18 +1762,20 @@ export default function PlanPage() {
             </div>
             <div className={styles.popup_body}>
               <p className={styles.gubup_desc}>클릭하면 과목 목록에 추가됩니다. 이미 추가된 과목은 비활성화됩니다.</p>
-              {(['필수', '선택'] as const).map((type) => (
+              {gubupPresets.length === 0 ? (
+                <div className={styles.gubup_loading}>불러오는 중...</div>
+              ) : (['필수', '선택'] as const).map((type) => (
                 <div key={type} className={styles.gubup_group}>
                   <div className={styles.gubup_group_label}>{type}과목</div>
                   <div className={styles.gubup_list}>
-                    {GUBUP_SUBJECTS.filter((s) => s.subject_type === type).map((subj) => {
-                      const existing = subjects.find((s) => s.name === subj.name && s.student_id === id);
+                    {gubupPresets.filter((s) => s.subject_type === type).map((subj) => {
+                      const existing = prevSubjects.find((s) => s.name === subj.name);
                       return (
                         <button
                           key={subj.name}
                           type="button"
                           className={`${styles.gubup_item} ${existing ? styles.gubup_item_done : ''}`}
-                          onClick={() => existing ? handleDeleteSubject(existing.id) : handleAddGubupSubject(subj)}
+                          onClick={() => existing ? handleDeletePrevSubject(existing.id) : handleAddGubupSubject(subj)}
                         >
                           <span className={styles.gubup_item_name}>{subj.name}</span>
                           <span className={styles.gubup_item_credit}>{subj.credits}학점</span>
@@ -1512,7 +1933,7 @@ export default function PlanPage() {
       {/* ── 팝업: 독학사 추가 ── */}
       {showDokaksaPopup && (
         <div className={styles.popup_overlay} onClick={() => setShowDokaksaPopup(false)}>
-          <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+          <div className={`${styles.popup} ${styles.popup_wide}`} onClick={(e) => e.stopPropagation()}>
             <div className={styles.popup_header}>
               <span className={styles.popup_title}>독학사 과목 추가</span>
               <button className={styles.popup_close} onClick={() => setShowDokaksaPopup(false)}>
@@ -1520,10 +1941,11 @@ export default function PlanPage() {
               </button>
             </div>
             <div className={styles.popup_body}>
+              {/* 단계 선택 */}
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>단계</label>
                 <div className={styles.popup_radio_group}>
-                  {DOKAKSA_STAGES.map((s) => (
+                  {(['1단계', '2단계', '3단계'] as const).map((s) => (
                     <label key={s} className={`${styles.popup_radio} ${dokaksaForm.stage === s ? styles.popup_radio_active : ''}`}>
                       <input type="radio" name="dStage" value={s} checked={dokaksaForm.stage === s}
                         onChange={() => setDokaksaForm((f) => ({ ...f, stage: s }))} />{s}
@@ -1531,11 +1953,67 @@ export default function PlanPage() {
                   ))}
                 </div>
               </div>
+
+              {/* 카테고리별 프리셋 목록 */}
+              {(() => {
+                const stagePresets = dokaksaPresets.filter((p) => p.stage === dokaksaForm.stage);
+                const studentMajor = student?.major ?? null;
+                // 2단계는 학생 전공 카테고리를 먼저, 나머지는 뒤로
+                const allCats = Array.from(new Set(stagePresets.map((p) => p.category)));
+                const categories = dokaksaForm.stage === '2단계' && studentMajor
+                  ? [studentMajor, ...allCats.filter((c) => c !== studentMajor)]
+                  : allCats;
+                return stagePresets.length > 0 ? (
+                  <>
+                    <p className={styles.gubup_desc}>클릭하면 추가/제거됩니다.{dokaksaForm.stage === '2단계' && studentMajor && ` 학생 전공: ${studentMajor}`}</p>
+                    {categories.map((cat) => {
+                      const isMajorMatch = dokaksaForm.stage === '2단계' && studentMajor === cat;
+                      const items = stagePresets.filter((p) => p.category === cat);
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={cat} className={styles.gubup_group}>
+                          <div className={styles.gubup_group_label}>
+                            {cat}
+                            {(dokaksaForm.stage === '2단계' || dokaksaForm.stage === '3단계') && (
+                              <span className={isMajorMatch ? styles.dokaksa_major_badge : styles.dokaksa_general_badge}>
+                                {isMajorMatch ? '전공' : '일반'}
+                              </span>
+                            )}
+                          </div>
+                          <div className={styles.gubup_list}>
+                            {items.map((preset) => {
+                              const existing = dokaksaList.find(
+                                (d) => d.stage === dokaksaForm.stage && d.subject_name === preset.name,
+                              );
+                              return (
+                                <button key={preset.name} type="button"
+                                  className={`${styles.gubup_item} ${existing ? styles.gubup_item_done : ''}`}
+                                  onClick={() => handleToggleDokaksaPreset(preset)}>
+                                  <span className={styles.gubup_item_name}>{preset.name}</span>
+                                  <span className={styles.gubup_item_credit}>{preset.credits}학점</span>
+                                  {existing
+                                    ? <span className={styles.gubup_item_check}>✓</span>
+                                    : <span className={styles.gubup_item_add}>+</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className={styles.dokaksa_divider} />
+                  </>
+                ) : (
+                  <p className={styles.gubup_desc}>해당 단계의 과목 목록이 준비 중입니다.</p>
+                );
+              })()}
+
+              {/* 수기 입력 */}
               <div className={styles.popup_field}>
-                <label className={styles.popup_label}>과목명</label>
-                <input className={styles.popup_input} placeholder="과목명을 입력하세요" value={dokaksaForm.subject_name}
+                <label className={styles.popup_label}>직접 입력</label>
+                <input className={styles.popup_input} placeholder="과목명 직접 입력" value={dokaksaForm.subject_name}
                   onChange={(e) => setDokaksaForm((f) => ({ ...f, subject_name: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddDokaksa(); }} autoFocus />
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddDokaksa(); }} />
               </div>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>학점</label>
@@ -1550,8 +2028,8 @@ export default function PlanPage() {
               </div>
             </div>
             <div className={styles.popup_footer}>
-              <button className={styles.popup_cancel} onClick={() => setShowDokaksaPopup(false)}>취소</button>
-              <button className={styles.popup_confirm} onClick={handleAddDokaksa} disabled={!dokaksaForm.subject_name.trim()}>추가</button>
+              <button className={styles.popup_cancel} onClick={() => setShowDokaksaPopup(false)}>닫기</button>
+              <button className={styles.popup_confirm} onClick={handleAddDokaksa} disabled={!dokaksaForm.subject_name.trim()}>직접 추가</button>
             </div>
           </div>
         </div>

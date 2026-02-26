@@ -21,6 +21,8 @@ const STATUS_STYLE: Record<string, { cls: string; label: string }> = {
   등록:              { cls: styles.badge_enrolled,  label: '등록'    },
   '사회복지사-실습예정': { cls: styles.badge_practice, label: '실습예정' },
   수료:              { cls: styles.badge_completed, label: '수료'    },
+  환불:              { cls: styles.badge_refund,    label: '환불'    },
+  삭제예정:           { cls: styles.badge_refund,    label: '삭제예정' },
 };
 
 export default function StudentDetailPage() {
@@ -51,6 +53,8 @@ export default function StudentDetailPage() {
       name: data.name,
       phone: data.phone || null,
       education_level: data.education_level || null,
+      major: data.major || null,
+      desired_degree: data.desired_degree || null,
       status: data.status,
       course_id: data.course_id || null,
       manager_name: data.manager_name || null,
@@ -95,7 +99,7 @@ export default function StudentDetailPage() {
         <div className={styles.header_left}>
           <div className={styles.name_row}>
             <h1 className={styles.student_name}>{student.name}</h1>
-            <span className={`${styles.badge} ${status.cls}`}>{status.label}</span>
+            <span className={`${styles.badge} ${status?.cls ?? ''}`}>{status?.label ?? student.status}</span>
           </div>
           <div className={styles.meta_row}>
             <span>{formatPhone(student.phone)}</span>

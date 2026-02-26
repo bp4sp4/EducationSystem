@@ -874,6 +874,71 @@
   overflow: visible;
 }
 
+.popup_wide {
+  width: 520px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.popup_wide .popup_body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dokaksa_major_badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background-color: #EFF6FF;
+  color: #3182F6;
+  border: 1px solid #BFDBFE;
+}
+
+.dokaksa_general_badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background-color: #F3F4F6;
+  color: #6B7280;
+  border: 1px solid #E5E7EB;
+}
+
+.dokaksa_gyoyang_badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  background-color: #ECFDF5;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+
+.dokaksa_subtype_label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 6px 2px 4px;
+  margin-top: 4px;
+}
+
+.dokaksa_divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 14px 0;
+}
+
 @keyframes popup_in {
   from { opacity: 0; transform: scale(0.96) translateY(6px); }
   to   { opacity: 1; transform: scale(1)    translateY(0); }
@@ -1470,6 +1535,130 @@
   gap: 16px;
 }
 
+/* 기수별 날짜 블록 */
+.kisu_date_block {
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1.5px solid transparent;
+  padding: 10px 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.kisu_date_block_active {
+  border-color: #3182F6;
+  background: #F8FAFF;
+}
+
+.kisu_label_row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.kisu_label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9CA3AF;
+}
+
+.kisu_label_active {
+  color: #3182F6;
+}
+
+.kisu_active_badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #DBEAFE;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.kisu_delete_btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: background 0.15s, color 0.15s;
+}
+
+.kisu_delete_btn:hover {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.assigned_kisu_header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 6px;
+  background: #F9FAFB;
+}
+
+.assigned_kisu_header_border {
+  border-top: 1.5px solid #E5E7EB;
+  margin-top: 4px;
+}
+
+.assigned_kisu_title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3182F6;
+}
+
+.assigned_kisu_count {
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 500;
+}
+
+.assigned_kisu_empty {
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #9CA3AF;
+  font-style: italic;
+}
+
+.kisu_badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #EFF6FF;
+  color: #3182F6;
+}
+
+.kisu_add_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.kisu_add_btn:hover {
+  background: #DBEAFE;
+}
+
 .semester_title_big {
   font-size: 18px;
   font-weight: 700;
@@ -1584,35 +1773,43 @@
 .assigned_list {
   display: flex;
   flex-direction: column;
+  gap: 0;
+}
+
+/* 칩 컨테이너 — 기수별 과목들을 감싸는 flex-wrap 영역 */
+.assigned_chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  padding: 10px 14px 12px;
 }
 
 .assigned_item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: #F9FAFB;
-  border-radius: 10px;
-  gap: 10px;
+  gap: 5px;
+  padding: 5px 10px;
+  
+  border: 1px solid #E5E7EB;
+  border-radius: 20px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.assigned_item:hover {
+  background: #FEE2E2;
+  border-color: #FECACA;
 }
 
 .assigned_info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  gap: 6px;
 }
 
 .assigned_name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: #191F28;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #374151;
   white-space: nowrap;
 }
 
@@ -1620,25 +1817,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 16px;
+  height: 16px;
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: 50%;
   cursor: pointer;
-  color: var(--color-text-tertiary);
+  color: #9CA3AF;
   flex-shrink: 0;
+  padding: 0;
   opacity: 0;
-  transition: background-color 0.15s, color 0.15s, opacity 0.15s;
+  transition: color 0.15s, opacity 0.15s;
 }
 
 .assigned_item:hover .assigned_remove_btn {
   opacity: 1;
+  color: #EF4444;
 }
 
 .assigned_remove_btn:hover {
-  background: #FEE2E2;
-  color: #EF4444;
+  color: #DC2626;
 }
 
 /* ── 실습예정 요건 트래커 ────────────────────────────────────── */
@@ -1701,7 +1899,7 @@
 .subject_type_badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
   flex-shrink: 0;
 }
@@ -1979,6 +2177,19 @@
   color: #9CA3AF;
   font-size: 13px;
   border: 1px solid #E5E7EB;
+}
+
+.fv_kisu_row {
+  background: #F9FAFB;
+}
+
+.fv_kisu_label {
+  padding: 7px 14px;
+  border: 1px solid #E5E7EB;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6B7280;
+  letter-spacing: 0.3px;
 }
 
 .fv_summary_row {

@@ -1,6 +1,7 @@
 export type UserRole = 'super_admin' | 'admin';
-export type StudentStatus = '등록' | '사회복지사-실습예정' | '수료';
-export type EducationLevel = '고등학교졸업' | '전문대졸업' | '대학교재학' | '대학교졸업';
+export type StudentStatus = '등록' | '사회복지사-실습예정' | '수료' | '환불' | '삭제예정';
+export type EducationLevel = '고졸' | '2년제중퇴' | '2년제졸업' | '3년제중퇴' | '3년제졸업' | '4년제중퇴' | '4년제졸업';
+export type DesiredDegree = '없음' | '전문학사' | '학사';
 
 export interface Profile {
   id: string;
@@ -26,6 +27,8 @@ export interface Student {
   name: string;
   phone: string | null;
   education_level: EducationLevel | null;
+  major: string | null;
+  desired_degree: DesiredDegree | null;
   status: StudentStatus;
   course_id: number | null;
   manager_name: string | null;
@@ -45,6 +48,8 @@ export interface StudentFormData {
   name: string;
   phone: string;
   education_level: EducationLevel | '';
+  major: string;
+  desired_degree: DesiredDegree | '';
   status: StudentStatus;
   course_id: number | '';
   manager_name: string;
