@@ -259,6 +259,7 @@ export default function PlanPage() {
 
   const [showDokaksaPopup, setShowDokaksaPopup] = useState(false);
   const [dokaksaForm, setDokaksaForm] = useState({ stage: '1단계' as typeof DOKAKSA_STAGES[number], subject_name: '', credits: 4 });
+
   const [dokaksaPresets, setDokaksaPresets] = useState<DokaksaPreset[]>([]);
   const [dokaksaSearch, setDokaksaSearch] = useState('');
 
@@ -457,6 +458,14 @@ export default function PlanPage() {
   // ── 핸들러: 수강 계획 ────────────────────────────────────────
   const MAX_PER_SEMESTER = 8;
   const MAX_PER_YEAR     = 14;
+
+  function getCenterCreditLimit(educationLevel: string | null | undefined): number | null {
+    if (!educationLevel) return null;
+    if (educationLevel.startsWith('4년제')) return 105;
+    if (educationLevel.startsWith('3년제')) return 90;
+    if (educationLevel.startsWith('2년제')) return 60;
+    return null;
+  }
 
   function getYearSubjectCount(year: string): number {
     return semesters
@@ -694,6 +703,7 @@ export default function PlanPage() {
     if (error) { alert(`삭제 실패: ${error.message}`); return; }
     setPrevSubjects((prev) => prev.filter((s) => s.id !== entryId));
   }
+
 
   // ── 핸들러: 학점인정 자격증 (DB) ────────────────────────────
   async function handleAddCert() {
@@ -1252,6 +1262,32 @@ export default function PlanPage() {
           </>
         ) : (
           <>
+            {/* 등록 교육원별 학점 카드 */}
+            {(() => {
+              const centers = (student.education_center_name ?? '').split(',').map(s => s.trim()).filter(Boolean);
+              const limit = getCenterCreditLimit(student.education_level);
+              if (centers.length === 0) return null;
+              let remaining = totalCredits;
+              return centers.map((centerName) => {
+                const used = limit !== null ? Math.min(remaining, limit) : remaining;
+                remaining = limit !== null ? Math.max(0, remaining - limit) : 0;
+                const pct = limit !== null ? Math.min(Math.round((used / limit) * 100), 100) : 100;
+                const isFull = limit !== null && used >= limit;
+                return (
+                  <div key={centerName} className={styles.stat_card}>
+                    <div className={styles.stat_label} style={{ color: isFull ? '#EF4444' : '#3182F6' }}>{centerName}</div>
+                    <div className={styles.stat_value} style={{ color: isFull ? '#EF4444' : undefined }}>
+                      {used}<span className={styles.stat_unit}>{limit !== null ? `/ ${limit}학점` : '학점'}</span>
+                    </div>
+                    {limit !== null && (
+                      <div className={styles.stat_bar_wrap}>
+                        <div className={styles.stat_bar} style={{ width: `${pct}%`, background: isFull ? '#EF4444' : '#3182F6' }} />
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>이번 학기 과목</div>
               <div className={styles.stat_value}>{currentSemesterSubjectIds.length}<span className={styles.stat_unit}>/ 8개</span></div>
@@ -1527,7 +1563,7 @@ export default function PlanPage() {
                 <div className={styles.subject_category_label}>{category}</div>
                 {subjs.map((subject) => {
                   const used = isSubjectUsed(subject.id);
-                  const isCustom = !!subject.student_id;
+                  const isCustom = !!subject.student_id && !subject.subject_type;
                   return (
                     <div
                       key={subject.id}

@@ -59,6 +59,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
   const [form, setForm] = useState<StudentFormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [classStartInput, setClassStartInput] = useState('');
+  const [centerInput, setCenterInput] = useState('');
 
   const courseList = courses.length > 0 ? courses : DEFAULT_COURSES;
   const centerSuggestions = centers.length > 0 ? centers.map((c) => c.name) : DEFAULT_CENTERS;
@@ -226,15 +227,53 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                   value={form.manager_name} onChange={(e) => set('manager_name', e.target.value)} />
               </div>
 
-              {/* 등록교육원 */}
+              {/* 등록교육원 (다중) */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>등록교육원</label>
-                <input
-                  className={styles.form_input}
-                  placeholder="교육원명 입력"
-                  value={form.education_center_name}
-                  onChange={(e) => set('education_center_name', e.target.value)}
-                />
+                <div className={styles.class_start_wrap}>
+                  {form.education_center_name.split(',').filter(Boolean).map((tag, i) => (
+                    <span key={i} className={styles.class_start_tag}>
+                      {tag.trim()}
+                      <button type="button" className={styles.class_start_tag_remove}
+                        onClick={() => {
+                          const tags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
+                          set('education_center_name', tags.filter((_, idx) => idx !== i).join(','));
+                        }}>✕</button>
+                    </span>
+                  ))}
+                  <input
+                    className={styles.class_start_input}
+                    list="edu-center-datalist"
+                    placeholder="교육원명 입력 후 Enter"
+                    value={centerInput}
+                    onChange={(e) => setCenterInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = centerInput.trim();
+                        const tags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
+                        if (val && !tags.includes(val)) {
+                          set('education_center_name', [...tags, val].join(','));
+                        }
+                        setCenterInput('');
+                      }
+                    }}
+                  />
+                  {centerInput.trim() && (
+                    <button type="button" className={styles.class_start_add_btn}
+                      onClick={() => {
+                        const val = centerInput.trim();
+                        const tags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
+                        if (val && !tags.includes(val)) {
+                          set('education_center_name', [...tags, val].join(','));
+                        }
+                        setCenterInput('');
+                      }}>+</button>
+                  )}
+                  <datalist id="edu-center-datalist">
+                    {centerSuggestions.map((c) => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
               </div>
 
               {/* 개강반 */}
