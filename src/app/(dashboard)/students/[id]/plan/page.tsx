@@ -35,6 +35,7 @@ interface CreditCert {
   name: string;
   credits: number;
   acquired_date: string | null;
+  credit_type: '전공' | '일반';
 }
 
 interface DokaksaEntry {
@@ -234,6 +235,7 @@ export default function PlanPage() {
   // UI 상태
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedSemester, setSelectedSemester] = useState(0);
+  const [subjectSearch, setSubjectSearch] = useState('');
 
   // 팝업 상태
   const [showSubjectPopup, setShowSubjectPopup] = useState(false);
@@ -249,11 +251,16 @@ export default function PlanPage() {
   const cbTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showCertPopup, setShowCertPopup] = useState(false);
-  const [certForm, setCertForm] = useState({ name: '', credits: 3, acquired_date: '' });
+  const [certForm, setCertForm] = useState({ name: '', credits: 3, acquired_date: '', credit_type: '일반' as '전공' | '일반' });
+  const [certPresetQuery, setCertPresetQuery] = useState('');
+  const [certPresetResults, setCertPresetResults] = useState<{ id: number; name: string; credits: number; associate_major: string | null; bachelor_major: string | null }[]>([]);
+  const [certPresetSearching, setCertPresetSearching] = useState(false);
+  const certPresetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showDokaksaPopup, setShowDokaksaPopup] = useState(false);
   const [dokaksaForm, setDokaksaForm] = useState({ stage: '1단계' as typeof DOKAKSA_STAGES[number], subject_name: '', credits: 4 });
   const [dokaksaPresets, setDokaksaPresets] = useState<DokaksaPreset[]>([]);
+  const [dokaksaSearch, setDokaksaSearch] = useState('');
 
   const [showAddSemesterPopup, setShowAddSemesterPopup] = useState(false);
   const [newSemesterForm, setNewSemesterForm] = useState({ year: '2025', term: 1 });
@@ -399,10 +406,12 @@ export default function PlanPage() {
     prevSubjects.forEach((s) => { map[s.category] = (map[s.category] ?? 0) + s.credits; });
     // 독학사 — credit_type(전공/일반/교양)을 카테고리로 합산
     dokaksaList.forEach((d) => { map[d.credit_type] = (map[d.credit_type] ?? 0) + d.credits; });
+    // 자격증 — credit_type(전공/일반)을 카테고리로 합산
+    creditCerts.forEach((c) => { map[c.credit_type] = (map[c.credit_type] ?? 0) + c.credits; });
     return map;
-  }, [assignedIds, subjects, prevSubjects, dokaksaList]);
+  }, [assignedIds, subjects, prevSubjects, dokaksaList, creditCerts]);
 
-  // 자격증 학점
+  // 자격증 학점 (표시용)
   const certCredits    = useMemo(() => creditCerts.reduce((s, c) => s + c.credits, 0), [creditCerts]);
   const dokaksaCredits = useMemo(() => dokaksaList.reduce((s, d) => s + d.credits, 0), [dokaksaList]);
 
@@ -425,14 +434,16 @@ export default function PlanPage() {
     });
     return { required, elective };
   }, [assignedIds, subjects, prevSubjects, planConfig.practice]);
-  const totalCredits  = Object.values(creditsByCategory).reduce((a, b) => a + b, 0) + certCredits;
+  const totalCredits  = Object.values(creditsByCategory).reduce((a, b) => a + b, 0);
   const progress      = Math.min(Math.round((totalCredits / planConfig.totalTarget) * 100), 100);
 
   // ── 과목 필터/그룹 ───────────────────────────────────────────
-  const filteredSubjects = useMemo(
-    () => selectedCategory === '전체' ? subjects : subjects.filter((s) => s.category === selectedCategory),
-    [selectedCategory, subjects],
-  );
+  const filteredSubjects = useMemo(() => {
+    const byCategory = selectedCategory === '전체' ? subjects : subjects.filter((s) => s.category === selectedCategory);
+    if (!subjectSearch.trim()) return byCategory;
+    const q = subjectSearch.trim().toLowerCase();
+    return byCategory.filter((s) => s.name.toLowerCase().includes(q));
+  }, [selectedCategory, subjects, subjectSearch]);
 
   const groupedSubjects = useMemo(() => {
     const groups: Record<string, Subject[]> = {};
@@ -687,18 +698,71 @@ export default function PlanPage() {
   // ── 핸들러: 학점인정 자격증 (DB) ────────────────────────────
   async function handleAddCert() {
     if (!certForm.name.trim()) return;
+
+    // ── 자격증 개수 제한 검증 ──────────────────────────────────
+    const desiredDegree = student?.desired_degree;
+    const maxTotal = desiredDegree === '학사' ? 3 : 2; // 학사 3개, 전문학사 2개
+    const currentTotal = creditCerts.length;
+    const currentIlban = creditCerts.filter((c) => c.credit_type === '일반').length;
+
+    if (currentTotal >= maxTotal) {
+      alert(`학점인정 자격증은 최대 ${maxTotal}개까지 추가할 수 있습니다.\n(${desiredDegree === '학사' ? '일반학사' : '전문학사'} 기준)`);
+      return;
+    }
+    if (certForm.credit_type === '일반' && currentIlban >= 1) {
+      alert('일반 학점 자격증은 최대 1개까지만 추가할 수 있습니다.');
+      return;
+    }
+    // ─────────────────────────────────────────────────────────
+
     const supabase = createClient();
     const { data, error } = await supabase.from('student_credit_certs').insert({
       student_id: id,
       name: certForm.name.trim(),
       credits: certForm.credits,
       acquired_date: certForm.acquired_date || null,
+      credit_type: certForm.credit_type,
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setCreditCerts((prev) => [...prev, data as CreditCert]);
-    logActivity({ action: '자격증 추가', target_type: 'cert', target_name: certForm.name, detail: student?.name });
-    setCertForm({ name: '', credits: 3, acquired_date: '' });
+    logActivity({ action: '자격증 추가', target_type: 'cert', target_name: certForm.name, detail: `${certForm.credit_type} / ${student?.name}` });
+    setCertForm({ name: '', credits: 3, acquired_date: '', credit_type: '일반' });
+    setCertPresetQuery('');
+    setCertPresetResults([]);
     setShowCertPopup(false);
+  }
+
+  function handleCertPresetSearch(query: string) {
+    setCertPresetQuery(query);
+    setCertForm((f) => ({ ...f, name: query }));
+    if (certPresetTimer.current) clearTimeout(certPresetTimer.current);
+    if (!query.trim()) { setCertPresetResults([]); return; }
+    setCertPresetSearching(true);
+    certPresetTimer.current = setTimeout(async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('credit_cert_presets')
+        .select('id, name, credits, associate_major, bachelor_major')
+        .ilike('name', `%${query}%`)
+        .order('sort_order')
+        .limit(10);
+      setCertPresetResults((data ?? []) as { id: number; name: string; credits: number; associate_major: string | null; bachelor_major: string | null }[]);
+      setCertPresetSearching(false);
+    }, 250);
+  }
+
+  function handleCertPresetSelect(preset: { name: string; credits: number; associate_major: string | null; bachelor_major: string | null }) {
+    const studentMajor = student?.major?.trim() ?? null;
+    const desiredDegree = student?.desired_degree;
+    let credit_type: '전공' | '일반' = '일반';
+    // 학사 희망일 때만 bachelor_major로 전공 판단 (전문학사는 항상 일반)
+    if (studentMajor && desiredDegree === '학사' && preset.bachelor_major) {
+      const majors = preset.bachelor_major.split(',').map((s) => s.trim());
+      if (majors.includes(studentMajor)) credit_type = '전공';
+    }
+    setCertForm((f) => ({ ...f, name: preset.name, credits: preset.credits, credit_type }));
+    setCertPresetQuery(preset.name);
+    setCertPresetResults([]);
   }
 
   async function handleDeleteCert(certId: string) {
@@ -711,6 +775,7 @@ export default function PlanPage() {
   // ── 독학사 팝업 열기 + 프리셋 fetch ─────────────────────────
   async function openDokaksaPopup() {
     setShowDokaksaPopup(true);
+    setDokaksaSearch('');
     if (dokaksaPresets.length > 0) return;
     const supabase = createClient();
     const { data } = await supabase
@@ -750,19 +815,21 @@ export default function PlanPage() {
   }
 
   // ── 핸들러: 독학사 (DB) ─────────────────────────────────────
-  async function handleAddDokaksa() {
-    if (!dokaksaForm.subject_name.trim()) return;
+  async function handleAddDokaksa(overrideName?: string) {
+    const subjectName = (overrideName ?? dokaksaForm.subject_name).trim();
+    if (!subjectName) return;
     const supabase = createClient();
     const { data, error } = await supabase.from('student_dokaksa').insert({
       student_id: id,
       stage: dokaksaForm.stage,
-      subject_name: dokaksaForm.subject_name.trim(),
+      subject_name: subjectName,
       credits: dokaksaForm.credits,
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setDokaksaList((prev) => [...prev, data as DokaksaEntry]);
-    logActivity({ action: '독학사 추가', target_type: 'dokaksa', target_name: dokaksaForm.subject_name, detail: student?.name });
-    setDokaksaForm({ stage: '1단계', subject_name: '', credits: 3 });
+    logActivity({ action: '독학사 추가', target_type: 'dokaksa', target_name: subjectName, detail: student?.name });
+    setDokaksaForm((f) => ({ ...f, subject_name: '' }));
+    setDokaksaSearch('');
     setShowDokaksaPopup(false);
   }
 
@@ -1215,7 +1282,12 @@ export default function PlanPage() {
               <span className={styles.section_count_badge}>{certCredits}학점</span>
             )}
           </div>
-          <button className={styles.section_add_btn} onClick={() => setShowCertPopup(true)}>+ 추가</button>
+          <button className={styles.section_add_btn} onClick={() => {
+            setCertForm({ name: '', credits: 3, acquired_date: '', credit_type: '일반' });
+            setCertPresetQuery('');
+            setCertPresetResults([]);
+            setShowCertPopup(true);
+          }}>+ 추가</button>
         </div>
 
         {creditCerts.length === 0 ? (
@@ -1224,6 +1296,7 @@ export default function PlanPage() {
           <div className={styles.credit_list}>
             {creditCerts.map((c) => (
               <div key={c.id} className={styles.credit_item}>
+                <span className={c.credit_type === '전공' ? styles.dokaksa_major_badge : styles.dokaksa_general_badge}>{c.credit_type}</span>
                 <span className={styles.credit_item_name}>{c.name}</span>
                 {c.acquired_date && <span className={styles.credit_item_date}>{c.acquired_date}</span>}
                 <span className={styles.credit_badge}>{c.credits}학점</span>
@@ -1275,8 +1348,8 @@ export default function PlanPage() {
         )}
       </div>}
 
-      {/* ── 전적대 이수과목 — 학위과정만 표시 ── */}
-      {planConfig.isHighSchool && <div className={styles.credit_section}>
+      {/* ── 전적대 이수과목 — 학위과정 또는 4년제졸업(구법 중복과목) ── */}
+      {(planConfig.isHighSchool || student.education_level === '4년제졸업') && <div className={styles.credit_section}>
         <div className={styles.credit_section_header}>
           <div className={styles.credit_section_title_wrap}>
             <span className={styles.section_title}>전적대 이수과목</span>
@@ -1292,13 +1365,13 @@ export default function PlanPage() {
                 구법 과목 추가
               </button>
             )}
+            <button className={styles.section_add_btn} onClick={() => setShowPrevPopup(true)}>+ 추가</button>
             <a
               className={styles.section_link_btn}
               href="https://www.cb.or.kr/creditbank/stuHelp/nStuHelp7_1.do"
               target="_blank"
               rel="noopener noreferrer"
             >학점은행 검색</a>
-            <button className={styles.section_add_btn} onClick={() => setShowPrevPopup(true)}>+ 추가</button>
           </div>
         </div>
 
@@ -1437,6 +1510,12 @@ export default function PlanPage() {
             <div className={styles.subject_max_notice}>이번 학기 최대 8과목 도달</div>
           )}
 
+          <input
+            className={styles.subject_search_input}
+            placeholder="과목명 검색"
+            value={subjectSearch}
+            onChange={(e) => setSubjectSearch(e.target.value)}
+          />
           <select className={styles.subject_filter} value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
             <option value="전체">전체</option>
             {SUBJECT_CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
@@ -1901,9 +1980,30 @@ export default function PlanPage() {
             <div className={styles.popup_body}>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>자격증명</label>
-                <input className={styles.popup_input} placeholder="자격증명을 입력하세요" value={certForm.name}
-                  onChange={(e) => setCertForm((f) => ({ ...f, name: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddCert(); }} autoFocus />
+                <div style={{ position: 'relative' }}>
+                  <input className={styles.popup_input}
+                    placeholder="자격증명 검색 또는 직접 입력"
+                    value={certPresetQuery}
+                    onChange={(e) => handleCertPresetSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !certPresetResults.length) handleAddCert(); }}
+                    autoFocus />
+                  {certPresetSearching && (
+                    <div className={styles.cb_searching}>검색 중...</div>
+                  )}
+                  {!certPresetSearching && certPresetQuery.trim() && certPresetResults.length === 0 && (
+                    <div className={styles.cb_no_result}>일치하는 자격증이 없습니다. 직접 입력 후 추가하세요.</div>
+                  )}
+                  {certPresetResults.length > 0 && (
+                    <div className={styles.cb_results}>
+                      {certPresetResults.map((p) => (
+                        <button key={p.id} type="button" className={styles.cb_result_item}
+                          onClick={() => handleCertPresetSelect(p)}>
+                          {p.name} <span style={{ color: '#3182F6', fontWeight: 700, marginLeft: 6 }}>{p.credits}학점</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>인정 학점</label>
@@ -1920,6 +2020,17 @@ export default function PlanPage() {
                 <label className={styles.popup_label}>취득일 (선택)</label>
                 <input className={styles.popup_input} type="date" value={certForm.acquired_date}
                   onChange={(e) => setCertForm((f) => ({ ...f, acquired_date: e.target.value }))} />
+              </div>
+              <div className={styles.popup_field}>
+                <label className={styles.popup_label}>학점 구분</label>
+                <div className={styles.popup_radio_group}>
+                  {(['전공', '일반'] as const).map((t) => (
+                    <label key={t} className={`${styles.popup_radio} ${certForm.credit_type === t ? styles.popup_radio_active : ''}`}>
+                      <input type="radio" name="certType" value={t} checked={certForm.credit_type === t}
+                        onChange={() => setCertForm((f) => ({ ...f, credit_type: t }))} />{t}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <div className={styles.popup_footer}>
@@ -1948,17 +2059,61 @@ export default function PlanPage() {
                   {(['1단계', '2단계', '3단계'] as const).map((s) => (
                     <label key={s} className={`${styles.popup_radio} ${dokaksaForm.stage === s ? styles.popup_radio_active : ''}`}>
                       <input type="radio" name="dStage" value={s} checked={dokaksaForm.stage === s}
-                        onChange={() => setDokaksaForm((f) => ({ ...f, stage: s }))} />{s}
+                        onChange={() => { setDokaksaForm((f) => ({ ...f, stage: s })); setDokaksaSearch(''); }} />{s}
                     </label>
                   ))}
                 </div>
               </div>
 
-              {/* 카테고리별 프리셋 목록 */}
+              {/* 검색창 */}
+              <div className={styles.popup_field}>
+                <input className={styles.popup_input}
+                  placeholder="과목명 검색 또는 직접 입력"
+                  value={dokaksaSearch}
+                  onChange={(e) => setDokaksaSearch(e.target.value)}
+                  autoFocus />
+              </div>
+
+              {/* 프리셋 목록 */}
               {(() => {
+                const q = dokaksaSearch.trim().toLowerCase();
                 const stagePresets = dokaksaPresets.filter((p) => p.stage === dokaksaForm.stage);
                 const studentMajor = student?.major ?? null;
-                // 2단계는 학생 전공 카테고리를 먼저, 나머지는 뒤로
+
+                // 검색어 있을 때 → flat 검색 결과
+                if (q) {
+                  const filtered = stagePresets.filter((p) => p.name.toLowerCase().includes(q));
+                  if (filtered.length === 0) return (
+                    <p className={styles.gubup_desc}>일치하는 과목이 없습니다.</p>
+                  );
+                  return (
+                    <div className={styles.gubup_list}>
+                      {filtered.map((preset) => {
+                        const isMajorMatch = (dokaksaForm.stage === '2단계' || dokaksaForm.stage === '3단계') && studentMajor === preset.category;
+                        const existing = dokaksaList.find(
+                          (d) => d.stage === dokaksaForm.stage && d.subject_name === preset.name,
+                        );
+                        return (
+                          <button key={`${preset.stage}-${preset.name}`} type="button"
+                            className={`${styles.gubup_item} ${existing ? styles.gubup_item_done : ''}`}
+                            onClick={() => handleToggleDokaksaPreset(preset)}>
+                            <span className={`${styles.gubup_item_name}`}>
+                              <span className={styles.dokaksa_stage_label}>{preset.category}</span>
+                              {preset.name}
+                            </span>
+                            <span className={isMajorMatch ? styles.dokaksa_major_badge : preset.stage === '1단계' ? styles.dokaksa_gyoyang_badge : styles.dokaksa_general_badge}>
+                              {preset.stage === '1단계' ? '교양' : isMajorMatch ? '전공' : '일반'}
+                            </span>
+                            <span className={styles.gubup_item_credit}>{preset.credits}학점</span>
+                            {existing ? <span className={styles.gubup_item_check}>✓</span> : <span className={styles.gubup_item_add}>+</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // 검색어 없을 때 → 기존 카테고리 그룹 뷰
                 const allCats = Array.from(new Set(stagePresets.map((p) => p.category)));
                 const categories = dokaksaForm.stage === '2단계' && studentMajor
                   ? [studentMajor, ...allCats.filter((c) => c !== studentMajor)]
@@ -1967,7 +2122,7 @@ export default function PlanPage() {
                   <>
                     <p className={styles.gubup_desc}>클릭하면 추가/제거됩니다.{dokaksaForm.stage === '2단계' && studentMajor && ` 학생 전공: ${studentMajor}`}</p>
                     {categories.map((cat) => {
-                      const isMajorMatch = dokaksaForm.stage === '2단계' && studentMajor === cat;
+                      const isMajorMatch = (dokaksaForm.stage === '2단계' || dokaksaForm.stage === '3단계') && studentMajor === cat;
                       const items = stagePresets.filter((p) => p.category === cat);
                       if (items.length === 0) return null;
                       return (
@@ -2008,28 +2163,32 @@ export default function PlanPage() {
                 );
               })()}
 
-              {/* 수기 입력 */}
-              <div className={styles.popup_field}>
-                <label className={styles.popup_label}>직접 입력</label>
-                <input className={styles.popup_input} placeholder="과목명 직접 입력" value={dokaksaForm.subject_name}
-                  onChange={(e) => setDokaksaForm((f) => ({ ...f, subject_name: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddDokaksa(); }} />
-              </div>
-              <div className={styles.popup_field}>
-                <label className={styles.popup_label}>학점</label>
-                <div className={styles.popup_radio_group}>
-                  {CREDIT_OPTIONS.map((c) => (
-                    <label key={c} className={`${styles.popup_radio} ${dokaksaForm.credits === c ? styles.popup_radio_active : ''}`}>
-                      <input type="radio" name="dCred" value={c} checked={dokaksaForm.credits === c}
-                        onChange={() => setDokaksaForm((f) => ({ ...f, credits: c }))} />{c}
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {/* 직접 입력 (검색어가 프리셋에 없을 때만 표시) */}
+              {dokaksaSearch.trim() && !dokaksaPresets.filter((p) => p.stage === dokaksaForm.stage).some((p) => p.name === dokaksaSearch.trim()) && (
+                <>
+                  <div className={styles.dokaksa_divider} />
+                  <div className={styles.popup_field}>
+                    <label className={styles.popup_label}>직접 추가</label>
+                    <div className={styles.popup_radio_group}>
+                      {CREDIT_OPTIONS.map((c) => (
+                        <label key={c} className={`${styles.popup_radio} ${dokaksaForm.credits === c ? styles.popup_radio_active : ''}`}>
+                          <input type="radio" name="dCred" value={c} checked={dokaksaForm.credits === c}
+                            onChange={() => setDokaksaForm((f) => ({ ...f, credits: c }))} />{c}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             <div className={styles.popup_footer}>
               <button className={styles.popup_cancel} onClick={() => setShowDokaksaPopup(false)}>닫기</button>
-              <button className={styles.popup_confirm} onClick={handleAddDokaksa} disabled={!dokaksaForm.subject_name.trim()}>직접 추가</button>
+              {dokaksaSearch.trim() && !dokaksaPresets.filter((p) => p.stage === dokaksaForm.stage).some((p) => p.name === dokaksaSearch.trim()) && (
+                <button className={styles.popup_confirm}
+                  onClick={() => handleAddDokaksa(dokaksaSearch.trim())}>
+                  직접 추가
+                </button>
+              )}
             </div>
           </div>
         </div>
