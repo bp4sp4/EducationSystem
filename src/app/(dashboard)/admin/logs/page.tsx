@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import FilterDropdown from '@/components/FilterDropdown';
 import styles from './page.module.css';
 
 interface ActivityLog {
@@ -16,24 +15,93 @@ interface ActivityLog {
   created_at: string;
 }
 
-const ACTION_COLOR: Record<string, string> = {
-  '학생 추가':       '#059669',
-  '학생 수정':       '#3182F6',
-  '학생 삭제':       '#EF4444',
-  '과목 추가':       '#059669',
-  '구법 과목 추가':   '#7C3AED',
-  '과목 삭제':       '#EF4444',
-  '플랜 저장':       '#3182F6',
-  '전적대 과목 추가': '#059669',
-  '자격증 추가':     '#059669',
-  '독학사 추가':     '#059669',
-};
+// ── 분류 정의 ──────────────────────────────────────────────────
 
+type Category = '전체' | '학생관리' | '과목관리' | '수강계획' | '이수인정' | '시스템';
+
+interface CategoryConfig {
+  label: Category;
+  color: string;
+  bg: string;
+  keywords: string[];
+}
+
+const CATEGORIES: CategoryConfig[] = [
+  {
+    label: '학생관리',
+    color: '#3182F6',
+    bg: '#EEF5FF',
+    keywords: ['학생 추가', '학생 수정', '학생 삭제', '학생 복구'],
+  },
+  {
+    label: '과목관리',
+    color: '#059669',
+    bg: '#ECFDF5',
+    keywords: ['과목 추가', '과목 수정', '과목 삭제', '구법 과목 추가', '프리셋', '과목관리'],
+  },
+  {
+    label: '수강계획',
+    color: '#7C3AED',
+    bg: '#F5F3FF',
+    keywords: ['플랜 저장', '수강계획', '기수 추가', '기수 삭제', '학기'],
+  },
+  {
+    label: '이수인정',
+    color: '#D97706',
+    bg: '#FFFBEB',
+    keywords: ['자격증', '독학사', '전적대', '학점 인정'],
+  },
+  {
+    label: '시스템',
+    color: '#6B7684',
+    bg: '#F2F4F6',
+    keywords: ['과정 추가', '과정 수정', '과정 삭제', '교육원', '로그인', '설정'],
+  },
+];
+
+function getCategory(action: string): CategoryConfig {
+  for (const cat of CATEGORIES) {
+    if (cat.keywords.some(k => action.includes(k.replace(' ', '')) || action.includes(k))) {
+      return cat;
+    }
+  }
+  // target_type 기반 fallback
+  return { label: '시스템', color: '#6B7684', bg: '#F2F4F6', keywords: [] };
+}
+
+// 액션 타입 (추가/수정/삭제/저장)
+function getActionType(action: string): { label: string; color: string; bg: string } {
+  if (action.includes('삭제'))  return { label: '삭제', color: '#EF4444', bg: '#FFF5F5' };
+  if (action.includes('수정'))  return { label: '수정', color: '#3182F6', bg: '#EEF5FF' };
+  if (action.includes('추가') || action.includes('등록')) return { label: '추가', color: '#059669', bg: '#ECFDF5' };
+  if (action.includes('저장'))  return { label: '저장', color: '#7C3AED', bg: '#F5F3FF' };
+  if (action.includes('복구'))  return { label: '복구', color: '#D97706', bg: '#FFFBEB' };
+  return { label: '기타', color: '#6B7684', bg: '#F2F4F6' };
+}
+
+// 시간 포맷
 function formatDate(str: string) {
-  return new Date(str).toLocaleString('ko-KR', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
+  const d = new Date(str);
+  return d.toLocaleString('ko-KR', {
+    month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+function formatDateGroup(str: string) {
+  const d = new Date(str);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const dStr = d.toDateString();
+  if (dStr === today.toDateString()) return '오늘';
+  if (dStr === yesterday.toDateString()) return '어제';
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function getDateGroup(str: string) {
+  return new Date(str).toDateString();
 }
 
 export default function AdminLogsPage() {
@@ -41,16 +109,18 @@ export default function AdminLogsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const [filterUser,   setFilterUser]   = useState('');
-  const [filterAction, setFilterAction] = useState('');
-  const [search,       setSearch]       = useState('');
+  const [filterCategory, setFilterCategory] = useState<Category>('전체');
+  const [filterUser,     setFilterUser]     = useState('');
+  const [search,         setSearch]         = useState('');
 
   useEffect(() => {
-    const supabase = createClient();
-    async function load() {
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      if (cancelled || !user) { if (!user) router.push('/login'); return; }
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+      if (cancelled) return;
       if (profile?.role !== 'super_admin') { router.push('/students'); return; }
 
       const { data } = await supabase
@@ -59,18 +129,28 @@ export default function AdminLogsPage() {
         .order('created_at', { ascending: false })
         .limit(500);
 
-      setLogs((data as ActivityLog[]) ?? []);
-      setLoading(false);
+      if (!cancelled) {
+        setLogs((data as ActivityLog[]) ?? []);
+        setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const users = useMemo(() => Array.from(new Set(logs.map(l => l.user_name))), [logs]);
+
+  // 카테고리별 카운트
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { 전체: logs.length };
+    for (const cat of CATEGORIES) {
+      counts[cat.label] = logs.filter(l => getCategory(l.action).label === cat.label).length;
     }
-    load();
-  }, [router]);
+    return counts;
+  }, [logs]);
 
-  const users   = useMemo(() => Array.from(new Set(logs.map((l) => l.user_name))), [logs]);
-  const actions = useMemo(() => Array.from(new Set(logs.map((l) => l.action))),    [logs]);
-
-  const filtered = useMemo(() => logs.filter((l) => {
-    if (filterUser   && l.user_name !== filterUser)  return false;
-    if (filterAction && l.action    !== filterAction) return false;
+  const filtered = useMemo(() => logs.filter(l => {
+    if (filterCategory !== '전체' && getCategory(l.action).label !== filterCategory) return false;
+    if (filterUser && l.user_name !== filterUser) return false;
     if (search) {
       const q = search.toLowerCase();
       const hit = l.user_name.toLowerCase().includes(q)
@@ -80,82 +160,138 @@ export default function AdminLogsPage() {
       if (!hit) return false;
     }
     return true;
-  }), [logs, filterUser, filterAction, search]);
+  }), [logs, filterCategory, filterUser, search]);
+
+  // 날짜별 그룹
+  const grouped = useMemo(() => {
+    const groups: { dateKey: string; dateLabel: string; logs: ActivityLog[] }[] = [];
+    for (const log of filtered) {
+      const key = getDateGroup(log.created_at);
+      const last = groups[groups.length - 1];
+      if (last && last.dateKey === key) {
+        last.logs.push(log);
+      } else {
+        groups.push({ dateKey: key, dateLabel: formatDateGroup(log.created_at), logs: [log] });
+      }
+    }
+    return groups;
+  }, [filtered]);
 
   return (
-    <>
+    <div className={styles.page}>
+      {/* 상단: 카테고리 탭 + 통계 */}
+      <div className={styles.category_tabs}>
+        {(['전체', ...CATEGORIES.map(c => c.label)] as Category[]).map(cat => {
+          const cfg = CATEGORIES.find(c => c.label === cat);
+          const isActive = filterCategory === cat;
+          return (
+            <button
+              key={cat}
+              className={`${styles.cat_tab} ${isActive ? styles.cat_tab_active : ''}`}
+              style={isActive && cfg ? { borderColor: cfg.color, color: cfg.color, background: cfg.bg } : {}}
+              onClick={() => setFilterCategory(cat)}
+            >
+              <span className={styles.cat_tab_label}>{cat}</span>
+              <span
+                className={styles.cat_tab_count}
+                style={isActive && cfg ? { background: cfg.color, color: '#fff' } : {}}
+              >{categoryCounts[cat] ?? 0}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* 필터 바 */}
       <div className={styles.filter_bar}>
-        <div className={styles.filter_search_wrap}>
-          <svg className={styles.filter_search_icon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className={styles.search_wrap}>
+          <svg className={styles.search_icon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
-            className={styles.filter_search}
-            placeholder="이름, 액션, 대상, 상세 검색..."
+            className={styles.search_input}
+            placeholder="이름, 액션, 대상 검색..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button className={styles.search_clear} onClick={() => setSearch('')}>✕</button>
+          )}
         </div>
 
-        <FilterDropdown
+        <select
+          className={styles.user_select}
           value={filterUser}
-          onChange={setFilterUser}
-          placeholder="전체 관리자"
-          options={users.map((u) => ({ value: u, label: u }))}
-        />
+          onChange={e => setFilterUser(e.target.value)}
+        >
+          <option value="">전체 관리자</option>
+          {users.map(u => <option key={u} value={u}>{u}</option>)}
+        </select>
 
-        <FilterDropdown
-          value={filterAction}
-          onChange={setFilterAction}
-          placeholder="전체 액션"
-          options={actions.map((a) => ({ value: a, label: a }))}
-        />
+        <span className={styles.result_count}>{filtered.length}건</span>
       </div>
 
-      {/* 테이블 */}
-      <div className={styles.table_wrap}>
-        {loading ? (
-          <div className={styles.empty_state}><div className={styles.empty_text}>불러오는 중...</div></div>
-        ) : filtered.length === 0 ? (
-          <div className={styles.empty_state}><div className={styles.empty_text}>활동 내역이 없습니다</div></div>
-        ) : (
-          <>
-            <table className={styles.table}>
-              <thead className={styles.table_head}>
-                <tr>
-                  <th className={styles.table_th}>일시</th>
-                  <th className={styles.table_th}>관리자</th>
-                  <th className={styles.table_th}>액션</th>
-                  <th className={styles.table_th}>대상</th>
-                  <th className={styles.table_th}>상세</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((log) => {
-                  const color = ACTION_COLOR[log.action] ?? '#191F28';
+      {/* 로그 목록 */}
+      {loading ? (
+        <div className={styles.empty}>불러오는 중...</div>
+      ) : filtered.length === 0 ? (
+        <div className={styles.empty}>활동 내역이 없습니다.</div>
+      ) : (
+        <div className={styles.log_wrap}>
+          {grouped.map(group => (
+            <div key={group.dateKey} className={styles.date_group}>
+              <div className={styles.date_label}>{group.dateLabel}</div>
+              <div className={styles.log_list}>
+                {group.logs.map(log => {
+                  const cat    = getCategory(log.action);
+                  const atype  = getActionType(log.action);
                   return (
-                    <tr key={log.id} className={styles.table_row}>
-                      <td className={`${styles.table_td} ${styles.table_date}`}>{formatDate(log.created_at)}</td>
-                      <td className={`${styles.table_td} ${styles.table_name}`}>{log.user_name}</td>
-                      <td className={styles.table_td}>
-                        <span className={styles.action_badge} style={{ color, background: `${color}18` }}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className={styles.table_td}>{log.target_name ?? '-'}</td>
-                      <td className={`${styles.table_td} ${styles.table_detail}`}>{log.detail ?? '-'}</td>
-                    </tr>
+                    <div key={log.id} className={styles.log_row}>
+                      {/* 왼쪽: 카테고리 컬러 바 */}
+                      <div className={styles.log_bar} style={{ background: cat.color }} />
+
+                      {/* 본문 */}
+                      <div className={styles.log_body}>
+                        <div className={styles.log_top}>
+                          {/* 분류 배지 */}
+                          <span className={styles.cat_badge} style={{ color: cat.color, background: cat.bg }}>
+                            {cat.label}
+                          </span>
+                          {/* 액션 타입 배지 */}
+                          <span className={styles.type_badge} style={{ color: atype.color, background: atype.bg }}>
+                            {atype.label}
+                          </span>
+                          {/* 액션 텍스트 */}
+                          <span className={styles.log_action}>{log.action}</span>
+                        </div>
+
+                        <div className={styles.log_mid}>
+                          {log.target_name && (
+                            <span className={styles.log_target}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                              </svg>
+                              {log.target_name}
+                            </span>
+                          )}
+                          {log.detail && (
+                            <span className={styles.log_detail}>{log.detail}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 오른쪽: 관리자 + 시간 */}
+                      <div className={styles.log_right}>
+                        <span className={styles.log_user}>{log.user_name}</span>
+                        <span className={styles.log_time}>{formatDate(log.created_at)}</span>
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-            <div className={styles.table_footer}>
-              <span className={styles.table_count}>전체 {logs.length}건 중 {filtered.length}건 표시</span>
+              </div>
             </div>
-          </>
-        )}
-      </div>
-    </>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

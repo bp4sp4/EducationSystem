@@ -48,15 +48,197 @@
   font-weight: 700;
 }
 
-/* ── 활동로그 ── */
-.log_action {
-  font-weight: 600;
-  color: #191F28;
+/* ── 활동로그 레이아웃 ── */
+.log_layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  align-items: start;
 }
 
-.log_target_type {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
+/* ── 왼쪽 메인 ── */
+.log_main {
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+.log_header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.log_header_title { font-size: 16px; font-weight: 700; color: #191F28; }
+.log_header_count { font-size: 12px; color: #8B95A1; font-weight: 500; }
+
+.log_filters {
+  background: #fff; border-radius: 14px;
+  border: 1px solid #F2F4F6; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.log_search_row {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.log_search_wrap {
+  position: relative; flex: 1; display: flex; align-items: center;
+}
+.log_search_icon {
+  position: absolute; left: 10px; color: #8B95A1; pointer-events: none;
+}
+.log_search {
+  width: 100%; height: 36px; padding: 0 12px 0 30px;
+  border: 1.5px solid #E5E8EB; border-radius: 8px;
+  font-size: 13px; color: #191F28; outline: none; transition: border-color 0.15s;
+}
+.log_search:focus { border-color: #3182F6; }
+.log_search::placeholder { color: #8B95A1; }
+
+.log_reset_btn {
+  height: 36px; padding: 0 16px;
+  border: 1.5px solid #E5E8EB; border-radius: 8px;
+  background: #fff; font-size: 13px; font-weight: 500; color: #4E5968;
+  cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+}
+.log_reset_btn:hover { border-color: #8B95A1; color: #191F28; }
+
+.log_filter_row {
+  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+}
+.log_filter_group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.log_filter_label {
+  font-size: 11px; font-weight: 600; color: #8B95A1;
+}
+.log_filter_select {
+  height: 34px; padding: 0 28px 0 10px;
+  border: 1.5px solid #E5E8EB; border-radius: 8px;
+  font-size: 13px; color: #191F28; background: #fff;
+  outline: none; cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238B95A1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+.log_filter_select:focus { border-color: #3182F6; }
+.log_filter_date {
+  height: 34px; padding: 0 10px;
+  border: 1.5px solid #E5E8EB; border-radius: 8px;
+  font-size: 13px; color: #191F28; background: #fff; outline: none;
+}
+.log_filter_date:focus { border-color: #3182F6; }
+
+/* ── 로그 카드 목록 ── */
+.log_cards {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.log_card {
+  background: #fff; border-radius: 12px;
+  border: 1px solid #F2F4F6; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.15s;
+}
+.log_card:hover { border-color: #D9E2EC; }
+
+.log_card_top {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.log_card_left {
+  display: flex; align-items: center; gap: 8px;
+}
+.log_card_badge {
+  display: inline-flex; align-items: center;
+  height: 20px; padding: 0 8px; border-radius: 5px;
+  font-size: 11px; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+}
+.log_card_user {
+  font-size: 14px; font-weight: 600; color: #191F28;
+}
+.log_card_time {
+  font-size: 12px; color: #8B95A1; white-space: nowrap; flex-shrink: 0;
+}
+
+.log_card_action {
+  font-size: 14px; font-weight: 500; color: #191F28;
+}
+
+.log_card_meta {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  font-size: 12px; color: #8B95A1;
+}
+
+.log_card_detail {
+  background: #EEF5FF; border-radius: 8px;
+  padding: 10px 12px; margin-top: 2px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.log_card_detail_title {
+  font-size: 11px; font-weight: 700; color: #3182F6; margin-bottom: 4px;
+}
+.log_card_detail_line {
+  font-size: 12px; color: #2563EB; font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* ── 오른쪽 사이드바 ── */
+.log_sidebar {
+  display: flex; flex-direction: column; gap: 12px;
+  position: sticky; top: 16px;
+}
+
+.log_stat_section {
+  background: #fff; border-radius: 14px;
+  border: 1px solid #F2F4F6; padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.log_stat_section_title {
+  font-size: 13px; font-weight: 700; color: #191F28;
+}
+
+.log_stat_grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.log_stat_today {
+  background: #EEF5FF; border-radius: 10px; padding: 12px;
+}
+.log_stat_week {
+  background: #ECFDF5; border-radius: 10px; padding: 12px;
+}
+.log_stat_label {
+  font-size: 11px; font-weight: 500; color: #6B7684; margin-bottom: 4px;
+}
+.log_stat_value {
+  font-size: 22px; font-weight: 700; color: #191F28;
+}
+.log_stat_today .log_stat_value { color: #3182F6; }
+.log_stat_week .log_stat_value { color: #059669; }
+
+.log_type_stats {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.log_type_stat_row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px;
+}
+.log_type_stat_dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.log_type_stat_label {
+  font-size: 13px; font-weight: 500; color: #191F28; flex: 1;
+}
+.log_type_stat_count {
+  font-size: 14px; font-weight: 700;
+}
+
+.log_user_stats {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.log_user_stat_row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; border-bottom: 1px solid #F2F4F6;
+}
+.log_user_stat_row:last-child { border-bottom: none; }
+.log_user_stat_name {
+  font-size: 13px; font-weight: 600; color: #191F28;
+}
+.log_user_stat_count {
+  font-size: 13px; font-weight: 700; color: #4E5968;
 }
 
 /* ── 상단 요약 ── */
@@ -531,4 +713,59 @@
   font-size: 12px;
   color: var(--color-text-tertiary);
   font-weight: 500;
+}
+
+/* ── 활동로그 페이지네이션 ── */
+.log_pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 0 4px;
+}
+
+.log_page_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1.5px solid #E5E8EB;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4E5968;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.log_page_btn:hover:not(:disabled) {
+  border-color: #3182F6;
+  color: #3182F6;
+}
+
+.log_page_btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.log_page_btn_active {
+  background: #3182F6;
+  border-color: #3182F6;
+  color: #fff;
+  font-weight: 700;
+}
+
+.log_page_btn_active:hover {
+  background: #1C6EE6;
+  border-color: #1C6EE6;
+  color: #fff;
+}
+
+.log_page_ellipsis {
+  font-size: 13px;
+  color: #8B95A1;
+  padding: 0 4px;
 }

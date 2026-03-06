@@ -1,6 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/types';
@@ -16,6 +17,7 @@ export default function DashboardLayoutClient({
   profile: Profile | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   async function handleLogout() {
     const supabase = createClient();
@@ -39,11 +41,10 @@ export default function DashboardLayoutClient({
               height={32}
               className={styles.header_logo_img}
             />
-            <h1 className={styles.header_title}>교육원 통합 관리 시스템</h1>
+            <h1 className={styles.header_title}>한평생교육원 통합 관리 시스템</h1>
           </div>
           <div className={styles.header_right}>
             <div className={styles.header_user}>
-              
               <span className={styles.header_user_name}>{profile?.name ?? '관리자'}</span>
               <span className={styles.header_role_badge}>{roleLabel}</span>
             </div>
@@ -53,6 +54,21 @@ export default function DashboardLayoutClient({
           </div>
         </div>
       </header>
+
+      <nav className={styles.nav}>
+        <div className={styles.nav_inner}>
+          <Link
+            href="/students"
+            className={`${styles.nav_item} ${pathname.startsWith('/students') ? styles.nav_item_active : ''}`}
+          >학생관리</Link>
+          {profile?.role === 'super_admin' && (
+            <Link
+              href="/admin/subjects"
+              className={`${styles.nav_item} ${pathname.startsWith('/admin/subjects') ? styles.nav_item_active : ''}`}
+            >과목관리</Link>
+          )}
+        </div>
+      </nav>
 
       <main className={styles.main}>{children}</main>
     </div>

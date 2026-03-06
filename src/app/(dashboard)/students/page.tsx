@@ -19,6 +19,15 @@ interface ActivityLog {
   created_at: string;
 }
 
+// ── 활동로그 헬퍼 ─────────────────────────────────────────────
+function getLogActionType(action: string): { label: string; color: string; bg: string } {
+  if (action.includes('삭제')) return { label: '삭제', color: '#EF4444', bg: '#FFF5F5' };
+  if (action.includes('수정')) return { label: '수정', color: '#3182F6', bg: '#EEF5FF' };
+  if (action.includes('추가') || action.includes('등록')) return { label: '추가', color: '#059669', bg: '#ECFDF5' };
+  if (action.includes('저장')) return { label: '저장', color: '#7C3AED', bg: '#F5F3FF' };
+  return { label: '기타', color: '#6B7684', bg: '#F2F4F6' };
+}
+
 type Tab = '학생관리' | '활동로그' | '환불목록' | '삭제목록';
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
@@ -53,6 +62,12 @@ export default function StudentsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('학생관리');
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [logSearch, setLogSearch] = useState('');
+  const [logActionType, setLogActionType] = useState('');
+  const [logDateFrom, setLogDateFrom] = useState('');
+  const [logDateTo, setLogDateTo] = useState('');
+  const [logPage, setLogPage] = useState(1);
+  const LOG_PAGE_SIZE = 10;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Student | null>(null);
@@ -115,7 +130,9 @@ export default function StudentsPage() {
     students.flatMap((s) => s.class_start?.split(',').map((v) => v.trim()).filter(Boolean) ?? [])
   )) as string[];
   const managers = Array.from(new Set(students.map((s) => s.manager_name).filter(Boolean))) as string[];
-  const centerNames = Array.from(new Set(students.map((s) => s.education_center_name).filter(Boolean))) as string[];
+  const centerNames = Array.from(new Set(
+    students.flatMap((s) => s.education_center_name?.split(',').map((v) => v.trim()).filter(Boolean) ?? [])
+  )) as string[];
 
   // 상태별 분리
   const activeStudents  = students.filter((s) => s.status !== '환불' && s.status !== '삭제예정');
@@ -126,7 +143,7 @@ export default function StudentsPage() {
     const q = search.toLowerCase();
     if (q && !s.name.toLowerCase().includes(q) && !(s.phone ?? '').includes(q)) return false;
     if (filterStatus && s.status !== filterStatus) return false;
-    if (filterCenter && s.education_center_name !== filterCenter) return false;
+    if (filterCenter && !s.education_center_name?.split(',').map((v) => v.trim()).includes(filterCenter)) return false;
     if (filterBatch && !s.class_start?.split(',').map((v) => v.trim()).includes(filterBatch)) return false;
     if (filterManager && s.manager_name !== filterManager) return false;
     if (filterCourse && String(s.course_id) !== filterCourse) return false;
@@ -376,41 +393,185 @@ export default function StudentsPage() {
       </> /* end 학생관리 tab */}
 
       {/* ── 활동로그 탭 ── */}
-      {activeTab === '활동로그' && isSuperAdmin && (
-        <div className={styles.table_wrap}>
-          {logsLoading ? (
-            <div className={styles.empty_state}><div className={styles.empty_text}>불러오는 중...</div></div>
-          ) : activityLogs.length === 0 ? (
-            <div className={styles.empty_state}><div className={styles.empty_text}>활동 로그가 없습니다</div></div>
-          ) : (
-            <table className={styles.table}>
-              <thead className={styles.table_head}>
-                <tr>
-                  <th className={styles.table_th}>시간</th>
-                  <th className={styles.table_th}>담당자</th>
-                  <th className={styles.table_th}>액션</th>
-                  <th className={styles.table_th}>대상</th>
-                  <th className={styles.table_th}>상세</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activityLogs.map((log) => (
-                  <tr key={log.id} className={styles.table_row}>
-                    <td className={`${styles.table_td} ${styles.table_date}`}>{formatLogDate(log.created_at)}</td>
-                    <td className={`${styles.table_td} ${styles.table_manager}`}>{log.user_name}</td>
-                    <td className={styles.table_td}><span className={styles.log_action}>{log.action}</span></td>
-                    <td className={`${styles.table_td} ${styles.table_course}`}>
-                      {log.target_name ?? '-'}
-                      {log.target_type && <span className={styles.log_target_type}> ({log.target_type})</span>}
-                    </td>
-                    <td className={`${styles.table_td} ${styles.table_manager}`}>{log.detail ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+      {activeTab === '활동로그' && isSuperAdmin && (() => {
+        const filteredLogs = activityLogs.filter(l => {
+          if (logSearch) {
+            const q = logSearch.toLowerCase();
+            if (!l.user_name.toLowerCase().includes(q) && !l.action.toLowerCase().includes(q) && !(l.target_name ?? '').toLowerCase().includes(q)) return false;
+          }
+          if (logActionType && getLogActionType(l.action).label !== logActionType) return false;
+          if (logDateFrom && l.created_at.slice(0, 10) < logDateFrom) return false;
+          if (logDateTo && l.created_at.slice(0, 10) > logDateTo) return false;
+          return true;
+        });
+
+        const totalPages = Math.ceil(filteredLogs.length / LOG_PAGE_SIZE);
+        const pagedLogs = filteredLogs.slice((logPage - 1) * LOG_PAGE_SIZE, logPage * LOG_PAGE_SIZE);
+
+        // 통계
+        const todayStr = new Date().toDateString();
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const todayCount = activityLogs.filter(l => new Date(l.created_at).toDateString() === todayStr).length;
+        const weekCount  = activityLogs.filter(l => new Date(l.created_at) >= weekAgo).length;
+        const actionTypeStats = [
+          { label: '추가', color: '#059669', bg: '#ECFDF5' },
+          { label: '수정', color: '#3182F6', bg: '#EEF5FF' },
+          { label: '삭제', color: '#EF4444', bg: '#FFF5F5' },
+          { label: '저장', color: '#7C3AED', bg: '#F5F3FF' },
+        ].map(t => ({ ...t, count: activityLogs.filter(l => getLogActionType(l.action).label === t.label).length }));
+        const userStats = Array.from(new Set(activityLogs.map(l => l.user_name)))
+          .map(u => ({ name: u, count: activityLogs.filter(l => l.user_name === u).length }))
+          .sort((a, b) => b.count - a.count);
+
+        const resetFilters = () => { setLogSearch(''); setLogActionType(''); setLogDateFrom(''); setLogDateTo(''); setLogPage(1); };
+
+        return (
+          <div className={styles.log_layout}>
+            {/* ── 왼쪽: 로그 목록 ── */}
+            <div className={styles.log_main}>
+              <div className={styles.log_header}>
+                <span className={styles.log_header_title}>로그 관리</span>
+                <span className={styles.log_header_count}>전체 로그: {activityLogs.length}개</span>
+              </div>
+
+              <div className={styles.log_filters}>
+                <div className={styles.log_search_row}>
+                  <div className={styles.log_search_wrap}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.log_search_icon}>
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input className={styles.log_search} placeholder="관리자명 검색..." value={logSearch} onChange={e => { setLogSearch(e.target.value); setLogPage(1); }} />
+                  </div>
+                  <button className={styles.log_reset_btn} onClick={resetFilters}>초기화</button>
+                </div>
+                <div className={styles.log_filter_row}>
+                  <div className={styles.log_filter_group}>
+                    <label className={styles.log_filter_label}>액션 타입</label>
+                    <select className={styles.log_filter_select} value={logActionType} onChange={e => { setLogActionType(e.target.value); setLogPage(1); }}>
+                      <option value="">전체 타입</option>
+                      <option value="추가">추가</option>
+                      <option value="수정">수정</option>
+                      <option value="삭제">삭제</option>
+                      <option value="저장">저장</option>
+                    </select>
+                  </div>
+                  <div className={styles.log_filter_group}>
+                    <label className={styles.log_filter_label}>시작일</label>
+                    <input type="date" className={styles.log_filter_date} value={logDateFrom} onChange={e => { setLogDateFrom(e.target.value); setLogPage(1); }} />
+                  </div>
+                  <div className={styles.log_filter_group}>
+                    <label className={styles.log_filter_label}>종료일</label>
+                    <input type="date" className={styles.log_filter_date} value={logDateTo} onChange={e => { setLogDateTo(e.target.value); setLogPage(1); }} />
+                  </div>
+                </div>
+              </div>
+
+              {logsLoading ? (
+                <div className={styles.empty_state}><div className={styles.empty_text}>불러오는 중...</div></div>
+              ) : filteredLogs.length === 0 ? (
+                <div className={styles.empty_state}><div className={styles.empty_text}>활동 로그가 없습니다</div></div>
+              ) : (
+                <>
+                  <div className={styles.log_cards}>
+                    {pagedLogs.map(log => {
+                      const atype = getLogActionType(log.action);
+                      const detailLines = log.detail ? log.detail.split(',').map(s => s.trim()).filter(Boolean) : [];
+                      return (
+                        <div key={log.id} className={styles.log_card}>
+                          <div className={styles.log_card_top}>
+                            <div className={styles.log_card_left}>
+                              <span className={styles.log_card_badge} style={{ color: atype.color, background: atype.bg }}>{atype.label}</span>
+                              <span className={styles.log_card_user}>{log.user_name}</span>
+                            </div>
+                            <span className={styles.log_card_time}>
+                              {new Date(log.created_at).toLocaleString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className={styles.log_card_action}>{log.action}</div>
+                          {(log.target_type || log.target_name) && (
+                            <div className={styles.log_card_meta}>
+                              {log.target_type && <span>테이블: {log.target_type}</span>}
+                              {log.target_name && <span>대상: {log.target_name}</span>}
+                            </div>
+                          )}
+                          {detailLines.length > 0 && (
+                            <div className={styles.log_card_detail}>
+                              <div className={styles.log_card_detail_title}>변경된 항목:</div>
+                              {detailLines.map((line, i) => (
+                                <div key={i} className={styles.log_card_detail_line}>{line}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className={styles.log_pagination}>
+                      <button className={styles.log_page_btn} disabled={logPage === 1} onClick={() => setLogPage(p => p - 1)}>이전</button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - logPage) <= 2)
+                        .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                          acc.push(p); return acc;
+                        }, [])
+                        .map((p, i) => p === '...' ? (
+                          <span key={`el-${i}`} className={styles.log_page_ellipsis}>…</span>
+                        ) : (
+                          <button key={p} className={`${styles.log_page_btn} ${logPage === p ? styles.log_page_btn_active : ''}`} onClick={() => setLogPage(p as number)}>{p}</button>
+                        ))}
+                      <button className={styles.log_page_btn} disabled={logPage === totalPages} onClick={() => setLogPage(p => p + 1)}>다음</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* ── 오른쪽: 통계 사이드바 ── */}
+            <div className={styles.log_sidebar}>
+              <div className={styles.log_stat_section}>
+                <div className={styles.log_stat_section_title}>활동 통계</div>
+                <div className={styles.log_stat_grid}>
+                  <div className={styles.log_stat_today}>
+                    <div className={styles.log_stat_label}>오늘 활동</div>
+                    <div className={styles.log_stat_value}>{todayCount}</div>
+                  </div>
+                  <div className={styles.log_stat_week}>
+                    <div className={styles.log_stat_label}>이번 주 활동</div>
+                    <div className={styles.log_stat_value}>{weekCount}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.log_stat_section}>
+                <div className={styles.log_stat_section_title}>액션 타입별 통계</div>
+                <div className={styles.log_type_stats}>
+                  {actionTypeStats.map(s => (
+                    <div key={s.label} className={styles.log_type_stat_row} style={{ background: s.bg }}>
+                      <span className={styles.log_type_stat_dot} style={{ background: s.color }} />
+                      <span className={styles.log_type_stat_label}>{s.label}</span>
+                      <span className={styles.log_type_stat_count} style={{ color: s.color }}>{s.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.log_stat_section}>
+                <div className={styles.log_stat_section_title}>관리자별 활동</div>
+                <div className={styles.log_user_stats}>
+                  {userStats.map(u => (
+                    <div key={u.name} className={styles.log_user_stat_row}>
+                      <span className={styles.log_user_stat_name}>{u.name}</span>
+                      <span className={styles.log_user_stat_count}>{u.count}회</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 환불목록 탭 ── */}
       {activeTab === '환불목록' && isSuperAdmin && (

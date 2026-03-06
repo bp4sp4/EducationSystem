@@ -628,8 +628,9 @@
 
 .stats_row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
+  width: 100%;
 }
 
 .stat_card {
@@ -679,6 +680,111 @@
   background: #3182F6;
   border-radius: 2px;
   transition: width 0.3s ease;
+}
+
+/* ── 교육원 카드 관리 ────────────────────────────────────────── */
+
+.center_remove_btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  background: none;
+  border: none;
+  font-size: 10px;
+  color: #B0B8C1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.center_remove_btn:hover {
+  background: #FEE2E2;
+  color: #EF4444;
+}
+
+.stat_card_add {
+  background: #FFFFFF;
+  border: 1.5px dashed #CBD5E1;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+
+.center_add_trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3182F6;
+  padding: 0;
+}
+
+.center_add_icon {
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.center_add_select {
+  height: 32px;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 8px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: #191F28;
+  background: #F8FAFC;
+  outline: none;
+  width: 100%;
+}
+
+.center_add_select:focus {
+  border-color: #3182F6;
+}
+
+.center_add_confirm {
+  height: 26px;
+  padding: 0 10px;
+  background: #3182F6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.center_add_confirm:hover {
+  background: #2563EB;
+}
+
+.center_add_cancel {
+  height: 26px;
+  padding: 0 10px;
+  background: none;
+  color: #8B95A1;
+  border: 1px solid #E5E8EB;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.center_add_cancel:hover {
+  background: #F2F4F6;
 }
 
 /* ── 두 패널 레이아웃 ────────────────────────────────────────── */
@@ -821,6 +927,160 @@
 .subject_card_disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+
+.subject_card_passed {
+  cursor: default;
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+}
+
+.subject_check_passed {
+  flex-shrink: 0;
+}
+
+.passed_badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #059669;
+  background: #D1FAE5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 4px;
+}
+
+.score_badge_passed {
+  font-size: 10px;
+  font-weight: 700;
+  color: #059669;
+  background: #D1FAE5;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* ── 점수 입력 ───────────────────────────────────────────────── */
+
+.score_input {
+  width: 46px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  background: #F9FAFB;
+  color: #374151;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.score_input::-webkit-inner-spin-button,
+.score_input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.score_input:focus {
+  border-color: #3182F6;
+  background: #fff;
+}
+
+.score_input_passed {
+  border-color: #6EE7B7;
+  background: #ECFDF5;
+  color: #059669;
+}
+
+/* ── 이수 완료 배정 항목 ─────────────────────────────────────── */
+
+.assigned_item_passed {
+  background: #F0FDF4;
+  border-color: #BBF7D0;
+}
+
+.assigned_item_passed:hover {
+  background: #DCFCE7;
+  border-color: #86EFAC;
+}
+
+/* ── 교육원별 학점 카드 ──────────────────────────────────────── */
+
+.stat_card_center {
+  background: #FFFFFF;
+  border: none;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.center_list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.center_list_row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.center_list_name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.center_list_val {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3182F6;
+  white-space: nowrap;
+}
+
+.center_list_val_full {
+  color: #EF4444;
+}
+
+.center_list_bar_wrap {
+  width: 48px;
+  height: 4px;
+  background: #F3F4F6;
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.center_list_bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+/* ── (구) 교육원별 학점 소계 칩 ─────────────────────────────── */
+
+.center_breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.center_credit_chip {
+  font-size: 10px;
+  font-weight: 600;
+  color: #3182F6;
+  background: #EFF6FF;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
 }
 
 /* ── 과목 패널 헤더 ──────────────────────────────────────────── */
@@ -1291,6 +1551,44 @@
   cursor: not-allowed;
 }
 
+.center_limit_msg {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.7;
+  padding: 4px 0;
+  margin-bottom: 16px;
+}
+
+.center_limit_btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.center_limit_option {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1.5px solid #3182F6;
+  background: #EEF5FF;
+  color: #3182F6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.center_limit_option:hover {
+  background: #D6E8FF;
+}
+
+.center_limit_custom_row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 /* ── 체크 아이콘 ─────────────────────────────────────────────── */
 
 .subject_check {
@@ -1556,6 +1854,43 @@
 
 .semester_tab_active .tab_term {
   color: #191F28;
+}
+
+/* ── 교육원 귀속 배지 ── */
+.tab_center_badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+  margin-top: 1px;
+  white-space: nowrap;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 교육원 전환 구분선 ── */
+.center_divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.center_divider_line {
+  width: 1px;
+  flex: 1;
+  background: #E5E8EB;
+}
+
+.center_divider_arrow {
+  font-size: 9px;
+  color: #8B95A1;
+  line-height: 1;
 }
 
 /* 학기 상세 */

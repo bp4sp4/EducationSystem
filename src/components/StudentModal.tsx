@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { Student, Course, EducationCenter, StudentFormData, EducationLevel, DesiredDegree } from '@/types';
 import styles from './StudentModal.module.css';
+import ModalSelect from './ModalSelect';
 
 const EDUCATION_LEVELS: EducationLevel[] = [
   '고졸', '2년제중퇴', '2년제졸업', '3년제중퇴', '3년제졸업', '4년제중퇴', '4년제졸업',
@@ -18,16 +19,14 @@ const DEFAULT_COURSES: Course[] = [
 
 const DEFAULT_CENTERS = ['한평생교육', '서사평', '올티칭'];
 
-// 학과 필드: 전문대/대학교 재학/졸업/중퇴
 const EDUCATION_LEVELS_WITH_MAJOR: EducationLevel[] = [
   '2년제졸업', '3년제졸업', '4년제졸업',
 ];
 
-// 희망학위 옵션 (교육수준별)
 function getDesiredDegreeOptions(level: EducationLevel | ''): DesiredDegree[] {
   if (!level || level === '4년제졸업') return [];
   if (level === '2년제졸업' || level === '3년제졸업') return ['없음', '학사'];
-  return ['전문학사', '학사']; // 고졸, 중퇴군 — 없음 제외
+  return ['전문학사', '학사'];
 }
 
 interface Props {
@@ -59,7 +58,6 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
   const [form, setForm] = useState<StudentFormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [classStartInput, setClassStartInput] = useState('');
-  const [centerInput, setCenterInput] = useState('');
 
   const courseList = courses.length > 0 ? courses : DEFAULT_COURSES;
   const centerSuggestions = centers.length > 0 ? centers.map((c) => c.name) : DEFAULT_CENTERS;
@@ -91,16 +89,14 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // 전화번호 자동 하이픈
   function handlePhone(raw: string) {
     const d = raw.replace(/\D/g, '').slice(0, 11);
     let formatted = d;
-    if (d.length > 7)       formatted = `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`;
-    else if (d.length > 3)  formatted = `${d.slice(0,3)}-${d.slice(3)}`;
+    if (d.length > 7)      formatted = `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`;
+    else if (d.length > 3) formatted = `${d.slice(0,3)}-${d.slice(3)}`;
     set('phone', formatted);
   }
 
-  // 비용 콤마 포맷
   function handleCost(raw: string) {
     const digits = raw.replace(/[^\d]/g, '');
     set('cost', digits);
@@ -111,13 +107,22 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
     return Number(val).toLocaleString();
   }
 
-  // 선택된 과정이 실습인지 확인
   const selectedCourseName = courseList.find((c) => c.id === Number(form.course_id))?.name ?? '';
   const isRehabCourse = selectedCourseName.includes('실습');
-
-  // 희망학위 옵션
   const degreeOptions = isRehabCourse ? [] : getDesiredDegreeOptions(form.education_level);
   const showDesiredDegree = degreeOptions.length > 0;
+
+  // 등록 교육원 태그 관련
+  const centerTags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
+
+  function addCenter(val: string) {
+    if (!val || centerTags.includes(val)) return;
+    set('education_center_name', [...centerTags, val].join(','));
+  }
+
+  function removeCenter(idx: number) {
+    set('education_center_name', centerTags.filter((_, i) => i !== idx).join(','));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -160,22 +165,19 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
               {/* 최종학력 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>최종학력</label>
-                <select className={styles.form_select} value={form.education_level}
-                  onChange={(e) => {
-                    const val = e.target.value as EducationLevel | '';
-                    set('education_level', val);
-                    if (!EDUCATION_LEVELS_WITH_MAJOR.includes(val as EducationLevel)) {
-                      set('major', '');
-                    }
-                    // 4년제졸업이면 희망학위 초기화
+                <ModalSelect
+                  value={form.education_level}
+                  placeholder="선택"
+                  options={EDUCATION_LEVELS.map((l) => ({ value: l, label: l }))}
+                  onChange={(val) => {
+                    set('education_level', val as EducationLevel | '');
+                    if (!EDUCATION_LEVELS_WITH_MAJOR.includes(val as EducationLevel)) set('major', '');
                     if (val === '4년제졸업') set('desired_degree', '');
-                  }}>
-                  <option value="">선택</option>
-                  {EDUCATION_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
+                  }}
+                />
               </div>
 
-              {/* 학과(전공) — 전문대/대학 관련 학력만 표시 */}
+              {/* 학과(전공) */}
               {EDUCATION_LEVELS_WITH_MAJOR.includes(form.education_level as EducationLevel) && (
                 <div className={styles.form_field}>
                   <label className={styles.form_label}>학과 (전공)</label>
@@ -187,36 +189,39 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
               {/* 상태 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>상태<span className={styles.form_required}>*</span></label>
-                <select className={styles.form_select} value={form.status}
-                  onChange={(e) => set('status', e.target.value as StudentFormData['status'])} required>
-                  {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <ModalSelect
+                  value={form.status}
+                  placeholder="선택"
+                  options={STATUSES.map((s) => ({ value: s, label: s }))}
+                  onChange={(val) => val && set('status', val as StudentFormData['status'])}
+                />
               </div>
 
               {/* 희망자격증과정 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>희망자격증과정</label>
-                <select className={styles.form_select} value={form.course_id}
-                  onChange={(e) => {
-                    set('course_id', e.target.value ? Number(e.target.value) : '');
-                    // 실습 과정 선택 시 희망학위 초기화
-                    const name = courseList.find((c) => c.id === Number(e.target.value))?.name ?? '';
+                <ModalSelect
+                  value={form.course_id !== '' ? String(form.course_id) : ''}
+                  placeholder="선택"
+                  options={courseList.map((c) => ({ value: String(c.id), label: c.name }))}
+                  onChange={(val) => {
+                    set('course_id', val ? Number(val) : '');
+                    const name = courseList.find((c) => c.id === Number(val))?.name ?? '';
                     if (name.includes('실습')) set('desired_degree', '');
-                  }}>
-                  <option value="">선택</option>
-                  {courseList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                  }}
+                />
               </div>
 
-              {/* 희망학위과정 — 실습 아닌 경우 + 4년제졸업 아닌 경우만 표시 */}
+              {/* 희망학위과정 */}
               {showDesiredDegree && (
                 <div className={styles.form_field}>
                   <label className={styles.form_label}>희망학위과정</label>
-                  <select className={styles.form_select} value={form.desired_degree}
-                    onChange={(e) => set('desired_degree', e.target.value as DesiredDegree | '')}>
-                    <option value="">선택</option>
-                    {degreeOptions.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  <ModalSelect
+                    value={form.desired_degree}
+                    placeholder="선택"
+                    options={degreeOptions.map((d) => ({ value: d, label: d }))}
+                    onChange={(val) => set('desired_degree', val as DesiredDegree | '')}
+                  />
                 </div>
               )}
 
@@ -227,53 +232,28 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                   value={form.manager_name} onChange={(e) => set('manager_name', e.target.value)} />
               </div>
 
-              {/* 등록교육원 (다중) */}
+              {/* 등록교육원 (다중 선택) */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>등록교육원</label>
-                <div className={styles.class_start_wrap}>
-                  {form.education_center_name.split(',').filter(Boolean).map((tag, i) => (
-                    <span key={i} className={styles.class_start_tag}>
-                      {tag.trim()}
-                      <button type="button" className={styles.class_start_tag_remove}
-                        onClick={() => {
-                          const tags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
-                          set('education_center_name', tags.filter((_, idx) => idx !== i).join(','));
-                        }}>✕</button>
-                    </span>
-                  ))}
-                  <input
-                    className={styles.class_start_input}
-                    list="edu-center-datalist"
-                    placeholder="교육원명 입력 후 Enter"
-                    value={centerInput}
-                    onChange={(e) => setCenterInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const val = centerInput.trim();
-                        const tags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
-                        if (val && !tags.includes(val)) {
-                          set('education_center_name', [...tags, val].join(','));
-                        }
-                        setCenterInput('');
-                      }
-                    }}
-                  />
-                  {centerInput.trim() && (
-                    <button type="button" className={styles.class_start_add_btn}
-                      onClick={() => {
-                        const val = centerInput.trim();
-                        const tags = form.education_center_name.split(',').map(s => s.trim()).filter(Boolean);
-                        if (val && !tags.includes(val)) {
-                          set('education_center_name', [...tags, val].join(','));
-                        }
-                        setCenterInput('');
-                      }}>+</button>
-                  )}
-                  <datalist id="edu-center-datalist">
-                    {centerSuggestions.map((c) => <option key={c} value={c} />)}
-                  </datalist>
-                </div>
+                {centerTags.length > 0 && (
+                  <div className={styles.center_tags}>
+                    {centerTags.map((tag, i) => (
+                      <span key={i} className={styles.class_start_tag}>
+                        {tag}
+                        <button type="button" className={styles.class_start_tag_remove}
+                          onClick={() => removeCenter(i)}>✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <ModalSelect
+                  value=""
+                  placeholder="+ 교육원 추가"
+                  options={centerSuggestions
+                    .filter((c) => !centerTags.includes(c))
+                    .map((c) => ({ value: c, label: c }))}
+                  onChange={(val) => addCenter(val)}
+                />
               </div>
 
               {/* 개강반 */}
@@ -286,8 +266,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                       <button type="button" className={styles.class_start_tag_remove}
                         onClick={() => {
                           const tags = form.class_start.split(',').filter(Boolean);
-                          const next = tags.filter((_, idx) => idx !== i);
-                          set('class_start', next.join(','));
+                          set('class_start', tags.filter((_, idx) => idx !== i).join(','));
                         }}>✕</button>
                     </span>
                   ))}
@@ -313,9 +292,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                         e.preventDefault();
                         const val = classStartInput.trim();
                         const tags = form.class_start.split(',').filter(Boolean);
-                        if (val && !tags.includes(val)) {
-                          set('class_start', [...tags, val].join(','));
-                        }
+                        if (val && !tags.includes(val)) set('class_start', [...tags, val].join(','));
                         setClassStartInput('');
                       }
                     }}
@@ -325,9 +302,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                       onClick={() => {
                         const val = classStartInput.trim();
                         const tags = form.class_start.split(',').filter(Boolean);
-                        if (val && !tags.includes(val)) {
-                          set('class_start', [...tags, val].join(','));
-                        }
+                        if (val && !tags.includes(val)) set('class_start', [...tags, val].join(','));
                         setClassStartInput('');
                       }}>+</button>
                   )}
@@ -345,7 +320,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                 </div>
               </div>
 
-              {/* 목표취득예정일 + 올케어 가입여부 */}
+              {/* 목표취득예정일 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>목표취득예정일</label>
                 <input className={styles.form_input} type="date"
@@ -353,6 +328,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                   onChange={(e) => set('target_completion_date', e.target.value)} />
               </div>
 
+              {/* 올케어 가입여부 */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>올케어 가입여부</label>
                 <div className={styles.allcare_group}>

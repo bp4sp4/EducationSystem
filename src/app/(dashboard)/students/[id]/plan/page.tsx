@@ -84,6 +84,8 @@ interface SemesterDates {
 
 const SUBJECT_CATEGORIES: SubjectCategory[] = ['전공', '교양', '일반'];
 const CREDIT_OPTIONS = [1, 2, 3, 4, 5] as const;
+const DEFAULT_CENTERS = ['한평생교육', '서사평', '올티칭'];
+const CENTER_ADD_THRESHOLD = 60;
 const DOKAKSA_STAGES = ['1단계', '2단계', '3단계', '4단계'] as const;
 
 const YEAR_OPTIONS = Array.from({ length: 8 }, (_, i) => String(2023 + i)); // 2023~2030
@@ -231,6 +233,8 @@ export default function PlanPage() {
   const [semesters,        setSemesters]        = useState<Semester[]>(INITIAL_SEMESTERS);
   const [semesterSubjects, setSemesterSubjects] = useState<Record<number, number[]>>({});
   const [semesterDates,    setSemesterDates]    = useState<Record<number, SemesterDates>>({});
+  // semesterId → subjectId → 점수
+  const [semesterScores,   setSemesterScores]   = useState<Record<number, Record<number, number>>>({});
 
   // UI 상태
   const [selectedCategory, setSelectedCategory] = useState('전체');
@@ -266,6 +270,14 @@ export default function PlanPage() {
   const [showAddSemesterPopup, setShowAddSemesterPopup] = useState(false);
   const [newSemesterForm, setNewSemesterForm] = useState({ year: '2025', term: 1 });
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const [showKisuPopup, setShowKisuPopup] = useState(false);
+  const [newKisuNumber, setNewKisuNumber] = useState('');
+  const [showCenterLimitPopup, setShowCenterLimitPopup] = useState(false);
+  const [centerLimitInfo, setCenterLimitInfo] = useState<{ name: string; limit: number } | null>(null);
+  const centerLimitAlertedRef = useRef<Set<string>>(new Set());
+
+  // 교육원 추가 드롭다운
+  const [showAddCenterSelect, setShowAddCenterSelect] = useState(false);
 
   // 전체보기
   const [showFullView, setShowFullView] = useState(false);
@@ -290,6 +302,11 @@ export default function PlanPage() {
     [student?.education_level, student?.courses?.name, student?.desired_degree],
   );
 
+  const hideCenterCredits = (
+    (student?.education_level ?? '').startsWith('4년제') ||
+    ['2년제졸업', '3년제졸업'].includes(student?.education_level ?? '')
+  ) && student?.desired_degree !== '학사';
+
   // ── 팝업 열림 시 배경 스크롤 잠금 ───────────────────────────
   const anyPopupOpen = showSubjectPopup || showGubupPopup || showPrevPopup
     || showCertPopup || showDokaksaPopup || showAddSemesterPopup || !!previewDoc || !!docModal;
@@ -301,6 +318,7 @@ export default function PlanPage() {
 
   // ── 데이터 로드 ─────────────────────────────────────────────
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
     Promise.all([
       supabase.from('students').select('*, courses(*)').eq('id', id).single(),
@@ -311,22 +329,23 @@ export default function PlanPage() {
       supabase.from('student_plans').select('*').eq('student_id', id).maybeSingle(),
       supabase.from('student_documents').select('*').eq('student_id', id).order('created_at', { ascending: false }),
     ]).then(async ([studentRes, subjectsRes, prevRes, certsRes, dokaksaRes, planRes, documentsRes]) => {
+      if (cancelled) return;
       const studentData = studentRes.data as Student;
       setStudent(studentData);
       let loadedSubjects = (subjectsRes.data ?? []) as Subject[];
 
-      // 신법/구법 과정이고 과목이 아직 없으면 프리셋 자동 삽입
+      // 신법/구법 과정이고 이 학생 전용 전공 과목이 아직 없으면 프리셋 자동 삽입
       const isSinbup = studentData?.courses?.name?.includes('신법');
       const isGubup  = studentData?.courses?.name?.includes('구법');
-      const courseType = (isSinbup || isGubup) ? '신법' : null;
-      if (courseType && loadedSubjects.length === 0) {
-        const supabase = createClient();
+      const courseType = isSinbup ? '신법' : isGubup ? '구법' : null;
+      const hasStudentSubjects = loadedSubjects.some((s) => s.student_id === id);
+      if (courseType && !hasStudentSubjects) {
         const { data: presets } = await supabase
           .from('subject_presets')
           .select('name, credits, subject_type')
           .eq('course_type', courseType)
           .order('sort_order');
-        if (presets?.length) {
+        if (presets?.length && !cancelled) {
           const rows = presets.map((p) => ({
             category: '전공' as SubjectCategory,
             name: p.name,
@@ -336,7 +355,7 @@ export default function PlanPage() {
             student_id: id,
           }));
           const { data: inserted } = await supabase.from('subjects').insert(rows).select();
-          if (inserted) loadedSubjects = inserted as Subject[];
+          if (inserted) loadedSubjects = [...loadedSubjects, ...(inserted as Subject[])];
         }
       }
 
@@ -365,6 +384,7 @@ export default function PlanPage() {
         }
         if (p.semester_subjects) setSemesterSubjects(p.semester_subjects);
         if (p.semester_dates)    setSemesterDates(p.semester_dates);
+        if (p.semester_scores)   setSemesterScores(p.semester_scores);
       }
 
       // class_start에 있는 기수 중 finalSemesters에 없는 것 추가
@@ -392,6 +412,7 @@ export default function PlanPage() {
       setLoading(false);
       setTimeout(() => { isInitialized.current = true; }, 0);
     });
+    return () => { cancelled = true; };
   }, [id]);
 
   // ── 통계 계산 ───────────────────────────────────────────────
@@ -438,6 +459,20 @@ export default function PlanPage() {
   const totalCredits  = Object.values(creditsByCategory).reduce((a, b) => a + b, 0);
   const progress      = Math.min(Math.round((totalCredits / planConfig.totalTarget) * 100), 100);
 
+  // ── 교육원별 학점 분배 ────────────────────────────────────────
+  const centerCreditsList = useMemo(() => {
+    if (!student) return [] as { name: string; used: number; limit: number | null }[];
+    const centers = (student.education_center_name ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const limit = getCenterCreditLimit(student.education_level);
+    if (centers.length === 0) return [] as { name: string; used: number; limit: number | null }[];
+    let remaining = totalCredits;
+    return centers.map((name) => {
+      const used = limit !== null ? Math.min(remaining, limit) : remaining;
+      remaining = limit !== null ? Math.max(0, remaining - limit) : 0;
+      return { name, used, limit };
+    });
+  }, [student, totalCredits]);
+
   // ── 과목 필터/그룹 ───────────────────────────────────────────
   const filteredSubjects = useMemo(() => {
     const byCategory = selectedCategory === '전체' ? subjects : subjects.filter((s) => s.category === selectedCategory);
@@ -465,6 +500,27 @@ export default function PlanPage() {
     if (educationLevel.startsWith('3년제')) return 90;
     if (educationLevel.startsWith('2년제')) return 60;
     return null;
+  }
+
+  async function handleAddCenter(centerName: string) {
+    if (!student || !centerName) return;
+    const current = (student.education_center_name ?? '').split(',').map(s => s.trim()).filter(Boolean);
+    if (current.includes(centerName)) return;
+    const updated = [...current, centerName].join(',');
+    const supabase = createClient();
+    await supabase.from('students').update({ education_center_name: updated }).eq('id', id);
+    setStudent(prev => prev ? { ...prev, education_center_name: updated } : prev);
+    setShowAddCenterSelect(false);
+  }
+
+  async function handleRemoveCenter(centerName: string) {
+    if (!student) return;
+    const current = (student.education_center_name ?? '').split(',').map(s => s.trim()).filter(Boolean);
+    if (current.length <= 1) { alert('최소 1개 교육원은 유지해야 합니다.'); return; }
+    const updated = current.filter(c => c !== centerName).join(',');
+    const supabase = createClient();
+    await supabase.from('students').update({ education_center_name: updated }).eq('id', id);
+    setStudent(prev => prev ? { ...prev, education_center_name: updated } : prev);
   }
 
   function getYearSubjectCount(year: string): number {
@@ -582,18 +638,29 @@ export default function PlanPage() {
 
   function handleAddKisu() {
     const curSem = semesters.find((s) => s.id === selectedSemester) ?? semesters[0];
-    const newId = (semesters[semesters.length - 1]?.id ?? -1) + 1;
     const sameGroup = semesters.filter((s) => s.year === curSem.year && s.term === curSem.term);
-    const classNumber = sameGroup.length + 1;
+    const defaultKisu = sameGroup.length + 1;
+    setNewKisuNumber(String(defaultKisu));
+    setShowKisuPopup(true);
+  }
+
+  function handleConfirmAddKisu() {
+    const kisuNum = parseInt(newKisuNumber, 10);
+    if (!kisuNum || kisuNum < 1) return;
+    const curSem = semesters.find((s) => s.id === selectedSemester) ?? semesters[0];
+    const newId = (semesters[semesters.length - 1]?.id ?? -1) + 1;
     setSemesters((prev) => [...prev, {
       id: newId,
       year: curSem.year,
       term: curSem.term,
-      class_number: classNumber,
+      class_number: kisuNum,
       label: '',
       months: '',
     }]);
     setSemesterDates((prev) => ({ ...prev, [newId]: getDefaultDates(curSem.year, curSem.term) }));
+    setSelectedSemester(newId);
+    setShowKisuPopup(false);
+    setNewKisuNumber('');
   }
 
   // ── 구법 프리셋 fetch ─────────────────────────────────────────
@@ -920,6 +987,27 @@ export default function PlanPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   }
 
+  // ── 교육원 학점 초과 감지 (totalCredits >= 60 기준) ──────────
+  useEffect(() => {
+    if (totalCredits >= CENTER_ADD_THRESHOLD) {
+      if (!centerLimitAlertedRef.current.has('__threshold__')) {
+        centerLimitAlertedRef.current.add('__threshold__');
+        const fullCenter = centerCreditsList.find(c => c.limit !== null && c.used >= c.limit);
+        if (fullCenter) {
+          setCenterLimitInfo({ name: fullCenter.name, limit: fullCenter.limit! });
+        } else {
+          const limit = getCenterCreditLimit(student?.education_level) ?? CENTER_ADD_THRESHOLD;
+          const centerName = (student?.education_center_name ?? '').split(',')[0]?.trim() || '현재 교육원';
+          setCenterLimitInfo({ name: centerName, limit });
+        }
+        setShowCenterLimitPopup(true);
+      }
+    } else {
+      // 학점이 다시 60 미만으로 떨어지면 리셋 (재등록 가능)
+      centerLimitAlertedRef.current.delete('__threshold__');
+    }
+  }, [totalCredits, centerCreditsList, student]);
+
   // ── 자동 저장 (debounce 800ms) ──────────────────────────────
   useEffect(() => {
     if (!isInitialized.current) return;
@@ -929,13 +1017,38 @@ export default function PlanPage() {
       const supabase = createClient();
       await supabase.from('student_plans').upsert({
         student_id: id, semesters, semester_subjects: semesterSubjects,
-        semester_dates: semesterDates, updated_at: new Date().toISOString(),
+        semester_dates: semesterDates, semester_scores: semesterScores,
+        updated_at: new Date().toISOString(),
       }, { onConflict: 'student_id' });
       logActivity({ action: '플랜 저장', target_type: 'plan', target_name: student?.name });
       setSaving(false);
     }, 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [semesters, semesterSubjects, semesterDates]);
+  }, [semesters, semesterSubjects, semesterDates, semesterScores]);
+
+  // ── 점수 핸들러 ─────────────────────────────────────────────
+  function handleScoreChange(semId: number, subjectId: number, value: string) {
+    const num = value === '' ? undefined : Math.max(0, Math.min(100, Number(value)));
+    setSemesterScores((prev) => {
+      const semScores = { ...(prev[semId] ?? {}) };
+      if (num === undefined) { delete semScores[subjectId]; }
+      else { semScores[subjectId] = num; }
+      return { ...prev, [semId]: semScores };
+    });
+  }
+
+  function getSubjectSemId(subjectId: number): number | undefined {
+    for (const [semIdStr, subjectIds] of Object.entries(semesterSubjects)) {
+      if ((subjectIds as number[]).includes(subjectId)) return Number(semIdStr);
+    }
+    return undefined;
+  }
+
+  function getSubjectScore(subjectId: number): number | undefined {
+    const semId = getSubjectSemId(subjectId);
+    if (semId === undefined) return undefined;
+    return semesterScores[semId]?.[subjectId];
+  }
 
   // ── 렌더링 ──────────────────────────────────────────────────
   if (loading) {
@@ -1259,22 +1372,51 @@ export default function PlanPage() {
               <div className={styles.stat_value}>{totalCredits}<span className={styles.stat_unit}>/ {planConfig.totalTarget}</span></div>
               <div className={styles.stat_bar_wrap}><div className={styles.stat_bar} style={{ width: `${progress}%` }} /></div>
             </div>
+            {!hideCenterCredits && centerCreditsList.length > 0 && (
+              <div className={styles.stat_card_center}>
+                <div className={styles.stat_label}>교육원별 학점</div>
+                <div className={styles.center_list}>
+                  {centerCreditsList.slice(0, 5).map((c) => {
+                    const pct = c.limit !== null ? Math.min(Math.round((c.used / c.limit) * 100), 100) : 100;
+                    const isFull = c.limit !== null && c.used >= c.limit;
+                    return (
+                      <div key={c.name} className={styles.center_list_row}>
+                        <span className={styles.center_list_name}>{c.name}</span>
+                        <span className={`${styles.center_list_val} ${isFull ? styles.center_list_val_full : ''}`}>
+                          {c.used}{c.limit !== null ? `/${c.limit}` : ''}학점
+                        </span>
+                        {c.limit !== null && (
+                          <div className={styles.center_list_bar_wrap}>
+                            <div className={styles.center_list_bar} style={{ width: `${pct}%`, background: isFull ? '#EF4444' : '#3182F6' }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <>
             {/* 등록 교육원별 학점 카드 */}
-            {(() => {
+            {!hideCenterCredits && (() => {
               const centers = (student.education_center_name ?? '').split(',').map(s => s.trim()).filter(Boolean);
               const limit = getCenterCreditLimit(student.education_level);
               if (centers.length === 0) return null;
               let remaining = totalCredits;
-              return centers.map((centerName) => {
+              const cards = centers.map((centerName) => {
                 const used = limit !== null ? Math.min(remaining, limit) : remaining;
                 remaining = limit !== null ? Math.max(0, remaining - limit) : 0;
                 const pct = limit !== null ? Math.min(Math.round((used / limit) * 100), 100) : 100;
                 const isFull = limit !== null && used >= limit;
                 return (
-                  <div key={centerName} className={styles.stat_card}>
+                  <div key={centerName} className={styles.stat_card} style={{ position: 'relative' }}>
+                    <button
+                      className={styles.center_remove_btn}
+                      onClick={() => handleRemoveCenter(centerName)}
+                      title="교육원 제거"
+                    >✕</button>
                     <div className={styles.stat_label} style={{ color: isFull ? '#EF4444' : '#3182F6' }}>{centerName}</div>
                     <div className={styles.stat_value} style={{ color: isFull ? '#EF4444' : undefined }}>
                       {used}<span className={styles.stat_unit}>{limit !== null ? `/ ${limit}학점` : '학점'}</span>
@@ -1287,6 +1429,51 @@ export default function PlanPage() {
                   </div>
                 );
               });
+              // 총학점이 60 이상이면 교육원 추가 버튼 표시
+              const availableCenters = DEFAULT_CENTERS.filter(c => !centers.includes(c));
+              if (totalCredits >= CENTER_ADD_THRESHOLD) {
+                cards.push(
+                  <div key="__add_center__" className={styles.stat_card_add}>
+                    {showAddCenterSelect ? (
+                      <>
+                        <div className={styles.stat_label} style={{ color: '#3182F6' }}>교육원 선택</div>
+                        <input
+                          id="center_add_input"
+                          className={styles.center_add_select}
+                          list="center_suggestions"
+                          placeholder="교육원 이름 입력..."
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const v = (e.target as HTMLInputElement).value.trim();
+                              if (v) handleAddCenter(v);
+                            }
+                            if (e.key === 'Escape') setShowAddCenterSelect(false);
+                          }}
+                        />
+                        <datalist id="center_suggestions">
+                          {availableCenters.map(c => <option key={c} value={c} />)}
+                        </datalist>
+                        <button
+                          className={styles.center_add_confirm}
+                          onClick={() => {
+                            const el = document.getElementById('center_add_input') as HTMLInputElement | null;
+                            const v = el?.value.trim() ?? '';
+                            if (v) handleAddCenter(v);
+                          }}
+                        >추가</button>
+                        <button className={styles.center_add_cancel} onClick={() => setShowAddCenterSelect(false)}>취소</button>
+                      </>
+                    ) : (
+                      <button className={styles.center_add_trigger} onClick={() => setShowAddCenterSelect(true)}>
+                        <span className={styles.center_add_icon}>+</span>
+                        <span>교육원 추가</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+              return cards;
             })()}
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>이번 학기 과목</div>
@@ -1296,6 +1483,30 @@ export default function PlanPage() {
               <div className={styles.stat_label}>총 학점</div>
               <div className={styles.stat_value}>{totalCredits}<span className={styles.stat_unit}>학점</span></div>
             </div>
+            {!hideCenterCredits && centerCreditsList.length > 0 && (
+              <div className={styles.stat_card_center}>
+                <div className={styles.stat_label}>교육원별 학점</div>
+                <div className={styles.center_list}>
+                  {centerCreditsList.slice(0, 5).map((c) => {
+                    const pct = c.limit !== null ? Math.min(Math.round((c.used / c.limit) * 100), 100) : 100;
+                    const isFull = c.limit !== null && c.used >= c.limit;
+                    return (
+                      <div key={c.name} className={styles.center_list_row}>
+                        <span className={styles.center_list_name}>{c.name}</span>
+                        <span className={`${styles.center_list_val} ${isFull ? styles.center_list_val_full : ''}`}>
+                          {c.used}{c.limit !== null ? `/${c.limit}` : ''}학점
+                        </span>
+                        {c.limit !== null && (
+                          <div className={styles.center_list_bar_wrap}>
+                            <div className={styles.center_list_bar} style={{ width: `${pct}%`, background: isFull ? '#EF4444' : '#3182F6' }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>목표 학점</div>
               <div className={styles.stat_value}>{TARGET_CREDITS}<span className={styles.stat_unit}>학점</span></div>
@@ -1563,18 +1774,24 @@ export default function PlanPage() {
                 <div className={styles.subject_category_label}>{category}</div>
                 {subjs.map((subject) => {
                   const used = isSubjectUsed(subject.id);
+                  const score = getSubjectScore(subject.id);
+                  const isPassed = score !== undefined && score >= 60;
                   const isCustom = !!subject.student_id && !subject.subject_type;
                   return (
                     <div
                       key={subject.id}
-                      className={`${styles.subject_card} ${used ? styles.subject_card_disabled : styles.subject_card_active}`}
-                      onClick={() => handleSubjectClick(subject.id)}
+                      className={`${styles.subject_card} ${isPassed ? styles.subject_card_passed : used ? styles.subject_card_disabled : styles.subject_card_active}`}
+                      onClick={() => !isPassed && handleSubjectClick(subject.id)}
                       role="button"
                       tabIndex={used ? -1 : 0}
                       aria-disabled={used}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSubjectClick(subject.id); }}
+                      onKeyDown={(e) => { if (!isPassed && (e.key === 'Enter' || e.key === ' ')) handleSubjectClick(subject.id); }}
                     >
-                      {used ? (
+                      {isPassed ? (
+                        <svg className={styles.subject_check_passed} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : used ? (
                         <svg className={styles.subject_check} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
@@ -1584,7 +1801,10 @@ export default function PlanPage() {
                       <div className={styles.subject_card_content}>
                         <div className={styles.subject_card_top}>
                           <span className={styles.subject_name}>{subject.name}</span>
-                          {isCustom && (
+                          {isPassed && (
+                            <span className={styles.passed_badge}>이수</span>
+                          )}
+                          {isCustom && !isPassed && (
                             <button className={styles.subject_delete_btn}
                               onClick={(e) => { e.stopPropagation(); handleDeleteSubject(subject.id); }}
                               aria-label="과목 삭제">
@@ -1636,34 +1856,88 @@ export default function PlanPage() {
                 groups.get(key)!.push(s);
               });
 
-              return Array.from(groups.entries()).map(([groupKey, groupSems]) => {
-                const rep        = groupSems[0]; // 대표 학기
+              // ── 교육원 귀속 계산 ──
+              const eduCenters = (student.education_center_name ?? '')
+                .split(',').map(s => s.trim()).filter(Boolean);
+              const centerLimit = getCenterCreditLimit(student.education_level);
+              const CENTER_COLORS = ['#3182F6', '#059669', '#D97706', '#7C3AED'];
+
+              // 그룹별 학점 합산
+              const groupCreditMap = new Map<string, number>();
+              groups.forEach((groupSems, key) => {
+                const cred = groupSems.reduce((sum, s) =>
+                  sum + (semesterSubjects[s.id] ?? []).reduce((cs, sid) => {
+                    const subj = subjects.find((sub) => sub.id === sid);
+                    return cs + (subj?.credits ?? 0);
+                  }, 0), 0);
+                groupCreditMap.set(key, cred);
+              });
+
+              // 각 그룹 시작 시점 누적 학점 → 교육원 인덱스 결정
+              const groupCenterMap = new Map<string, { name: string; idx: number }>();
+              let cumBefore = 0;
+              groups.forEach((_, key) => {
+                if (eduCenters.length > 0 && centerLimit !== null) {
+                  const idx = Math.min(Math.floor(cumBefore / centerLimit), eduCenters.length - 1);
+                  groupCenterMap.set(key, { name: eduCenters[idx], idx });
+                }
+                cumBefore += groupCreditMap.get(key) ?? 0;
+              });
+
+              const showCenterBadge = eduCenters.length >= 1 && centerLimit !== null;
+              const groupEntries = Array.from(groups.entries());
+
+              return groupEntries.map(([groupKey, groupSems], i) => {
+                const rep        = groupSems[0];
                 const isActive   = selectedGroupKey === groupKey;
                 const totalCount = groupSems.reduce((sum, s) => sum + (semesterSubjects[s.id] ?? []).length, 0);
+                const centerInfo = groupCenterMap.get(groupKey);
+                const prevCenter = i > 0 ? groupCenterMap.get(groupEntries[i - 1][0]) : null;
+                const centerChanged = showCenterBadge && prevCenter != null && prevCenter.idx !== centerInfo?.idx;
+                const color = centerInfo ? (CENTER_COLORS[centerInfo.idx] ?? '#3182F6') : '#3182F6';
+
                 return (
-                  <div key={groupKey} className={`${styles.semester_tab_wrap} ${isActive ? styles.semester_tab_wrap_active : ''}`}>
-                    <button
-                      className={`${styles.semester_tab} ${isActive ? styles.semester_tab_active : ''}`}
-                      onClick={() => setSelectedSemester(groupSems.find(s => s.id === selectedSemester) ? selectedSemester : groupSems[0].id)}
-                    >
-                      <div className={styles.tab_top_row}>
-                        <span className={styles.tab_year}>{String(rep.year).slice(2)}년{totalCount > 0 ? ` · ${totalCount}과목` : ''}</span>
-                        {semesters.length > groupSems.length && (
+                  <Fragment key={groupKey}>
+                    {/* 교육원 전환 구분선 */}
+                    {centerChanged && (
+                      <div className={styles.center_divider}>
+                        <div className={styles.center_divider_line} />
+                        <span className={styles.center_divider_arrow}>▶</span>
+                        <div className={styles.center_divider_line} />
+                      </div>
+                    )}
+                    <div className={`${styles.semester_tab_wrap} ${isActive ? styles.semester_tab_wrap_active : ''}`}>
+                      <button
+                        className={`${styles.semester_tab} ${isActive ? styles.semester_tab_active : ''}`}
+                        onClick={() => setSelectedSemester(groupSems.find(s => s.id === selectedSemester) ? selectedSemester : groupSems[0].id)}
+                      >
+                        <div className={styles.tab_top_row}>
+                          <span className={styles.tab_year}>{String(rep.year).slice(2)}년{totalCount > 0 ? ` · ${totalCount}과목` : ''}</span>
+                          {semesters.length > groupSems.length && (
+                            <span
+                              className={styles.tab_delete_btn}
+                              onClick={(e) => { e.stopPropagation(); groupSems.forEach(s => handleDeleteSemester(s.id)); }}
+                              role="button"
+                              aria-label="학기 삭제"
+                            >
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                              </svg>
+                            </span>
+                          )}
+                        </div>
+                        <span className={styles.tab_term}>{rep.term}학기</span>
+                        {showCenterBadge && centerInfo && (
                           <span
-                            className={styles.tab_delete_btn}
-                            onClick={(e) => { e.stopPropagation(); groupSems.forEach(s => handleDeleteSemester(s.id)); }}
-                            role="button"
-                            aria-label="학기 삭제"
+                            className={styles.tab_center_badge}
+                            style={{ background: `${color}18`, color }}
                           >
-                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
+                            {centerInfo.name}
                           </span>
                         )}
-                      </div>
-                      <span className={styles.tab_term}>{rep.term}학기</span>
-                    </button>
-                  </div>
+                      </button>
+                    </div>
+                  </Fragment>
                 );
               });
             })()}
@@ -1746,8 +2020,10 @@ export default function PlanPage() {
                               {semIds.map((subjectId) => {
                                 const subject = subjects.find((s) => s.id === subjectId);
                                 if (!subject) return null;
+                                const subScore = semesterScores[sem.id]?.[subjectId];
+                                const subPassed = subScore !== undefined && subScore >= 60;
                                 return (
-                                  <div key={subjectId} className={styles.assigned_item}>
+                                  <div key={subjectId} className={`${styles.assigned_item} ${subPassed ? styles.assigned_item_passed : ''}`}>
                                     <div className={styles.assigned_info}>
                                       <span className={styles.assigned_name}>{subject.name}</span>
                                       {subject.subject_type && (
@@ -1757,12 +2033,24 @@ export default function PlanPage() {
                                       )}
                                       <span className={styles.credit_badge}>{subject.credits}학점</span>
                                     </div>
-                                    <button className={styles.assigned_remove_btn}
-                                      onClick={() => handleRemoveAssigned(sem.id, subjectId)} aria-label="삭제">
-                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                                      </svg>
-                                    </button>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      placeholder="점수"
+                                      className={`${styles.score_input} ${subPassed ? styles.score_input_passed : ''}`}
+                                      value={subScore ?? ''}
+                                      onChange={(e) => handleScoreChange(sem.id, subjectId, e.target.value)}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    {!subPassed && (
+                                      <button className={styles.assigned_remove_btn}
+                                        onClick={() => handleRemoveAssigned(sem.id, subjectId)} aria-label="삭제">
+                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                      </button>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1776,8 +2064,11 @@ export default function PlanPage() {
                       {currentSemesterSubjectIds.map((subjectId) => {
                         const subject = subjects.find((s) => s.id === subjectId);
                         if (!subject) return null;
+                        const semIdForSubj = getSubjectSemId(subjectId) ?? selectedSemester;
+                        const subScore = semesterScores[semIdForSubj]?.[subjectId];
+                        const subPassed = subScore !== undefined && subScore >= 60;
                         return (
-                          <div key={subjectId} className={styles.assigned_item}>
+                          <div key={subjectId} className={`${styles.assigned_item} ${subPassed ? styles.assigned_item_passed : ''}`}>
                             <div className={styles.assigned_info}>
                               <span className={styles.assigned_name}>{subject.name}</span>
                               {subject.subject_type && (
@@ -1787,12 +2078,24 @@ export default function PlanPage() {
                               )}
                               <span className={styles.credit_badge}>{subject.credits}학점</span>
                             </div>
-                            <button className={styles.assigned_remove_btn}
-                              onClick={() => handleRemoveAssigned(selectedSemester, subjectId)} aria-label="삭제">
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                              </svg>
-                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              placeholder="점수"
+                              className={`${styles.score_input} ${subPassed ? styles.score_input_passed : ''}`}
+                              value={subScore ?? ''}
+                              onChange={(e) => handleScoreChange(semIdForSubj, subjectId, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            {!subPassed && (
+                              <button className={styles.assigned_remove_btn}
+                                onClick={() => handleRemoveAssigned(selectedSemester, subjectId)} aria-label="삭제">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -2240,7 +2543,7 @@ export default function PlanPage() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <div className={styles.popup_body}>
+            <div className={styles.popup_body} style={{ overflow: 'visible' }}>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>년도</label>
                 <div className={styles.fd_wrap}>
@@ -2286,6 +2589,99 @@ export default function PlanPage() {
           </div>
         </div>
       )}
+
+      {/* ── 기수 추가 팝업 ── */}
+      {showKisuPopup && (
+        <div className={styles.popup_overlay} onClick={() => setShowKisuPopup(false)}>
+          <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.popup_header}>
+              <span className={styles.popup_title}>기수 추가</span>
+              <button className={styles.popup_close} onClick={() => setShowKisuPopup(false)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className={styles.popup_body}>
+              <div className={styles.popup_field}>
+                <label className={styles.popup_label}>기수 번호</label>
+                <input
+                  type="number"
+                  min={1}
+                  className={styles.popup_input}
+                  value={newKisuNumber}
+                  onChange={(e) => setNewKisuNumber(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleConfirmAddKisu()}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className={styles.popup_footer}>
+              <button className={styles.popup_cancel} onClick={() => setShowKisuPopup(false)}>취소</button>
+              <button className={styles.popup_confirm} onClick={handleConfirmAddKisu}>추가</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 교육원 학점 초과 알림 팝업 ── */}
+      {showCenterLimitPopup && centerLimitInfo && (() => {
+        const registeredCenters = (student?.education_center_name ?? '').split(',').map(s => s.trim()).filter(Boolean);
+        const availableCenters = DEFAULT_CENTERS.filter(c => !registeredCenters.includes(c));
+        return (
+          <div className={styles.popup_overlay} onClick={() => setShowCenterLimitPopup(false)}>
+            <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.popup_header}>
+                <span className={styles.popup_title}>교육원 학점 초과</span>
+                <button className={styles.popup_close} onClick={() => setShowCenterLimitPopup(false)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div className={styles.popup_body}>
+                <p className={styles.center_limit_msg}>
+                  <strong>{centerLimitInfo.name}</strong>에서 수강 가능한<br />
+                  최대 학점(<strong>{centerLimitInfo.limit}학점</strong>)에 도달했습니다.<br />
+                  다른 교육원을 추가해주세요.
+                </p>
+                {availableCenters.length > 0 && (
+                  <div className={styles.center_limit_btns}>
+                    {availableCenters.map(c => (
+                      <button
+                        key={c}
+                        className={styles.center_limit_option}
+                        onClick={() => { handleAddCenter(c); setShowCenterLimitPopup(false); }}
+                      >{c}</button>
+                    ))}
+                  </div>
+                )}
+                <div className={styles.center_limit_custom_row}>
+                  <input
+                    id="center_limit_custom_input"
+                    className={styles.popup_input}
+                    placeholder="직접 입력..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const v = (e.target as HTMLInputElement).value.trim();
+                        if (v) { handleAddCenter(v); setShowCenterLimitPopup(false); }
+                      }
+                    }}
+                  />
+                  <button
+                    className={styles.popup_confirm}
+                    style={{ flexShrink: 0 }}
+                    onClick={() => {
+                      const el = document.getElementById('center_limit_custom_input') as HTMLInputElement | null;
+                      const v = el?.value.trim() ?? '';
+                      if (v) { handleAddCenter(v); setShowCenterLimitPopup(false); }
+                    }}
+                  >추가</button>
+                </div>
+              </div>
+              <div className={styles.popup_footer}>
+                <button className={styles.popup_cancel} onClick={() => setShowCenterLimitPopup(false)}>나중에</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── 파일 미리보기 모달 ── */}
       {previewDoc && (

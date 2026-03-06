@@ -190,7 +190,7 @@ create policy "인증된 유저 문서 전체" on public.student_documents
 
 create table public.subject_presets (
   id serial primary key,
-  course_type text not null check (course_type in ('구법', '신법')),
+  course_type text not null,  -- 희망자격증과정 이름 (자유 텍스트, 예: 신법, 구법, 보육교사 2급)
   name text not null,
   credits integer not null default 3,
   subject_type text not null check (subject_type in ('필수', '선택')),

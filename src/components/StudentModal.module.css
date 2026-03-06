@@ -264,6 +264,14 @@
   cursor: not-allowed;
 }
 
+/* ── 교육원 태그 표시 ── */
+.center_tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
 /* ── 개강반 태그 입력 ── */
 .class_start_wrap {
   display: flex;
