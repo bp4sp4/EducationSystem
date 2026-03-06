@@ -495,3 +495,39 @@ insert into public.dokaksa_presets (stage, category, name, credits, subject_type
   ('3단계', '정보통신학', '정보통신기기',     5, '전공', 6),
   ('3단계', '정보통신학', '정보보안',         5, '전공', 7),
   ('3단계', '정보통신학', '네트워크프로그래밍',5,'전공', 8);
+
+-- ============================
+-- 학생 메모
+-- ============================
+
+create table public.student_memos (
+  id uuid default gen_random_uuid() primary key,
+  student_id uuid references public.students(id) on delete cascade not null,
+  content text not null,
+  created_by text not null default '',
+  created_at timestamptz default now()
+);
+
+alter table public.student_memos enable row level security;
+
+create policy "인증된 유저 메모 전체" on public.student_memos
+  for all to authenticated using (true) with check (true);
+
+-- ============================
+-- 학생 연락 기록
+-- ============================
+
+create table public.student_contacts (
+  id uuid default gen_random_uuid() primary key,
+  student_id uuid references public.students(id) on delete cascade not null,
+  contact_type text not null default '전화',
+  content text not null,
+  contacted_at date not null default current_date,
+  created_by text not null default '',
+  created_at timestamptz default now()
+);
+
+alter table public.student_contacts enable row level security;
+
+create policy "인증된 유저 연락기록 전체" on public.student_contacts
+  for all to authenticated using (true) with check (true);

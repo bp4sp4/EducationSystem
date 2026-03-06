@@ -987,24 +987,27 @@ export default function PlanPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   }
 
-  // ── 교육원 학점 초과 감지 (totalCredits >= 60 기준) ──────────
+  // ── 교육원 학점 초과 감지 (현재 교육원 수 × 60 기준) ──────────
   useEffect(() => {
-    if (totalCredits >= CENTER_ADD_THRESHOLD) {
-      if (!centerLimitAlertedRef.current.has('__threshold__')) {
-        centerLimitAlertedRef.current.add('__threshold__');
+    const currentCenters = (student?.education_center_name ?? '').split(',').map(s => s.trim()).filter(Boolean);
+    const centerCount = Math.max(currentCenters.length, 1);
+    const thresholdKey = `threshold_${centerCount}`;
+
+    if (totalCredits >= CENTER_ADD_THRESHOLD * centerCount) {
+      if (!centerLimitAlertedRef.current.has(thresholdKey)) {
+        centerLimitAlertedRef.current.add(thresholdKey);
         const fullCenter = centerCreditsList.find(c => c.limit !== null && c.used >= c.limit);
         if (fullCenter) {
           setCenterLimitInfo({ name: fullCenter.name, limit: fullCenter.limit! });
         } else {
           const limit = getCenterCreditLimit(student?.education_level) ?? CENTER_ADD_THRESHOLD;
-          const centerName = (student?.education_center_name ?? '').split(',')[0]?.trim() || '현재 교육원';
+          const centerName = currentCenters[centerCount - 1] || '현재 교육원';
           setCenterLimitInfo({ name: centerName, limit });
         }
         setShowCenterLimitPopup(true);
       }
     } else {
-      // 학점이 다시 60 미만으로 떨어지면 리셋 (재등록 가능)
-      centerLimitAlertedRef.current.delete('__threshold__');
+      centerLimitAlertedRef.current.delete(thresholdKey);
     }
   }, [totalCredits, centerCreditsList, student]);
 
