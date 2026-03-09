@@ -264,6 +264,123 @@
   cursor: not-allowed;
 }
 
+/* ── 올케어 실시간 상태 뱃지 ── */
+.allcare_badge_checking {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+.allcare_badge_active {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+}
+
+.allcare_badge_inactive {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #D97706;
+}
+
+.allcare_badge_notfound {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+
+/* ── 학과(전공) 콤보박스 ── */
+.major_wrap {
+  position: relative;
+  width: 100%;
+}
+
+.major_input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 44px;
+  padding: 0 36px 0 14px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.major_input:focus {
+  border-color: var(--color-primary);
+}
+
+.major_input::placeholder {
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+.major_chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8B95A1;
+  pointer-events: none;
+  transition: transform 0.2s, color 0.15s;
+}
+
+.major_chevron_open {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--color-primary);
+}
+
+.major_dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  width: 100%;
+  background: #FFFFFF;
+  border: 1px solid #E5E8EB;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  z-index: 500;
+  padding: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  animation: major_in 0.12s ease;
+}
+
+@keyframes major_in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.major_option {
+  padding: 9px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.major_option:hover {
+  background-color: #F2F4F6;
+}
+
+.major_option_active {
+  color: #3182F6;
+  font-weight: 600;
+}
+
+.major_option_active:hover {
+  background-color: #EBF3FE;
+}
+
 /* ── 교육원 태그 표시 ── */
 .center_tags {
   display: flex;

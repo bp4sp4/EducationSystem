@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Student, Course, EducationCenter, StudentFormData, EducationLevel, DesiredDegree } from '@/types';
 import styles from './StudentModal.module.css';
 import ModalSelect from './ModalSelect';
+import { createClient } from '@/lib/supabase/client';
 
 const EDUCATION_LEVELS: EducationLevel[] = [
   '고졸', '2년제중퇴', '2년제졸업', '3년제중퇴', '3년제졸업', '4년제중퇴', '4년제졸업',
@@ -58,6 +59,69 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
   const [form, setForm] = useState<StudentFormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [classStartInput, setClassStartInput] = useState('');
+  const [majorSuggestions, setMajorSuggestions] = useState<string[]>([]);
+  const [majorOpen, setMajorOpen] = useState(false);
+  const majorRef = useRef<HTMLDivElement>(null);
+
+  const [allcareStatus, setAllcareStatus] = useState<{
+    loading: boolean;
+    subscribed: boolean | null;
+    found: boolean | null;
+    plan?: string;
+    status?: string;
+  }>({ loading: false, subscribed: null, found: null });
+  const allcareTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('credit_cert_presets')
+      .select('bachelor_major')
+      .not('bachelor_major', 'is', null)
+      .then(({ data }) => {
+        if (!data) return;
+        const set = new Set<string>();
+        data.forEach((row) => {
+          row.bachelor_major?.split(',').forEach((m: string) => {
+            const trimmed = m.trim();
+            if (trimmed) set.add(trimmed);
+          });
+        });
+        setMajorSuggestions(Array.from(set).sort());
+      });
+  }, []);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (majorRef.current && !majorRef.current.contains(e.target as Node)) setMajorOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // 이름 + 전화번호 변경 시 올케어 DB 실시간 조회 (디바운스 800ms)
+  useEffect(() => {
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    if (!name || !phone || phone.replace(/-/g, '').length < 10) {
+      setAllcareStatus({ loading: false, subscribed: null, found: null });
+      return;
+    }
+    if (allcareTimer.current) clearTimeout(allcareTimer.current);
+    setAllcareStatus((prev) => ({ ...prev, loading: true }));
+    allcareTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/allcare-check?name=${encodeURIComponent(name)}&phone=${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        setAllcareStatus({ loading: false, subscribed: data.subscribed, found: data.found, plan: data.plan, status: data.status });
+        if (data.subscribed === true) set('all_care', true);
+        if (data.subscribed === false) set('all_care', false);
+      } catch {
+        setAllcareStatus({ loading: false, subscribed: null, found: null });
+      }
+    }, 800);
+    return () => { if (allcareTimer.current) clearTimeout(allcareTimer.current); };
+  }, [form.name, form.phone]);
 
   const courseList = courses.length > 0 ? courses : DEFAULT_COURSES;
   const centerSuggestions = centers.length > 0 ? centers.map((c) => c.name) : DEFAULT_CENTERS;
@@ -181,8 +245,43 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
               {EDUCATION_LEVELS_WITH_MAJOR.includes(form.education_level as EducationLevel) && (
                 <div className={styles.form_field}>
                   <label className={styles.form_label}>학과 (전공)</label>
-                  <input className={styles.form_input} placeholder="예: 사회복지학, 영어영문학"
-                    value={form.major} onChange={(e) => set('major', e.target.value)} />
+                  <div className={styles.major_wrap} ref={majorRef}>
+                    <input
+                      className={styles.major_input}
+                      placeholder="전공 검색 또는 직접 입력"
+                      value={form.major}
+                      onChange={(e) => { set('major', e.target.value); setMajorOpen(true); }}
+                      onFocus={() => setMajorOpen(true)}
+                      autoComplete="off"
+                    />
+                    <svg
+                      width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                      className={`${styles.major_chevron} ${majorOpen ? styles.major_chevron_open : ''}`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                    {majorOpen && (
+                      <div className={styles.major_dropdown}>
+                        {majorSuggestions
+                          .filter((m) => !form.major || m.includes(form.major))
+                          .map((m) => (
+                            <div
+                              key={m}
+                              className={`${styles.major_option} ${form.major === m ? styles.major_option_active : ''}`}
+                              onMouseDown={(e) => { e.preventDefault(); set('major', m); setMajorOpen(false); }}
+                            >
+                              {m}
+                            </div>
+                          ))}
+                        {majorSuggestions.filter((m) => !form.major || m.includes(form.major)).length === 0 && (
+                          <div className={styles.major_option} style={{ color: 'var(--color-text-tertiary)', cursor: 'default' }}>
+                            일치하는 전공 없음
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -330,7 +429,23 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
               {/* 올케어 가입여부 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>올케어 가입여부</label>
+                <label className={styles.form_label}>
+                  올케어 가입여부
+                  {allcareStatus.loading && (
+                    <span className={styles.allcare_badge_checking}>조회 중...</span>
+                  )}
+                  {!allcareStatus.loading && allcareStatus.subscribed === true && (
+                    <span className={styles.allcare_badge_active}>
+                      ● 올케어 활성{allcareStatus.plan ? ` · ${allcareStatus.plan}` : ''}
+                    </span>
+                  )}
+                  {!allcareStatus.loading && allcareStatus.subscribed === false && allcareStatus.found === true && (
+                    <span className={styles.allcare_badge_inactive}>● 미구독</span>
+                  )}
+                  {!allcareStatus.loading && allcareStatus.subscribed === false && allcareStatus.found === false && (
+                    <span className={styles.allcare_badge_notfound}>● 미가입</span>
+                  )}
+                </label>
                 <div className={styles.allcare_group}>
                   <button type="button"
                     className={`${styles.allcare_btn} ${form.all_care ? styles.allcare_btn_active_o : ''}`}

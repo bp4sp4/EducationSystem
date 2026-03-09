@@ -143,22 +143,24 @@ export default function AdminSubjectsPage() {
     setSaving(true);
     const supabase = createClient();
     if (editPreset) {
-      await supabase.from('subject_presets').update({
+      const { error } = await supabase.from('subject_presets').update({
         name: presetForm.name.trim(),
         credits: presetForm.credits,
         subject_type: presetForm.subject_type,
         sort_order: presetForm.sort_order,
       }).eq('id', editPreset.id);
+      if (error) { alert(`수정 실패: ${error.message}`); savingRef.current = false; setSaving(false); return; }
       setPresets(prev => prev.map(p => p.id === editPreset.id ? { ...p, ...presetForm, name: presetForm.name.trim() } : p));
       logActivity({ action: '과목 수정', target_type: 'subject_preset', target_name: presetForm.name.trim() });
     } else {
-      const { data } = await supabase.from('subject_presets').insert({
+      const { data, error } = await supabase.from('subject_presets').insert({
         course_type: courseType,
         name: presetForm.name.trim(),
         credits: presetForm.credits,
         subject_type: presetForm.subject_type,
         sort_order: presetForm.sort_order,
       }).select().single();
+      if (error) { alert(`추가 실패: ${error.message}`); savingRef.current = false; setSaving(false); return; }
       if (data) setPresets(prev => [...prev, data as SubjectPreset]);
       logActivity({ action: '과목 추가', target_type: 'subject_preset', target_name: presetForm.name.trim() });
     }

@@ -243,9 +243,12 @@ export default function PlanPage() {
 
   // 팝업 상태
   const [showSubjectPopup, setShowSubjectPopup] = useState(false);
+  const [showEditSubjectPopup, setShowEditSubjectPopup] = useState(false);
+  const [editSubjectForm, setEditSubjectForm] = useState<{ id: number; name: string; credits: number; type: '이론' | '실습' } | null>(null);
   const [subjectForm, setSubjectForm] = useState({ category: '전공' as SubjectCategory, name: '', credits: 3, type: '이론' as '이론' | '실습' });
 
   const [showPrevPopup,   setShowPrevPopup]   = useState(false);
+  const [editingPrevId,   setEditingPrevId]   = useState<string | null>(null);
   const [showGubupPopup,  setShowGubupPopup]  = useState(false);
   const [gubupPresets,    setGubupPresets]    = useState<{ name: string; credits: number; subject_type: '필수' | '선택' }[]>([]);
   const [prevForm, setPrevForm] = useState({ category: '전공' as SubjectCategory, name: '', credits: 3 });
@@ -308,7 +311,7 @@ export default function PlanPage() {
   ) && student?.desired_degree !== '학사';
 
   // ── 팝업 열림 시 배경 스크롤 잠금 ───────────────────────────
-  const anyPopupOpen = showSubjectPopup || showGubupPopup || showPrevPopup
+  const anyPopupOpen = showSubjectPopup || showEditSubjectPopup || showGubupPopup || showPrevPopup
     || showCertPopup || showDokaksaPopup || showAddSemesterPopup || !!previewDoc || !!docModal;
 
   useEffect(() => {
@@ -334,10 +337,11 @@ export default function PlanPage() {
       setStudent(studentData);
       let loadedSubjects = (subjectsRes.data ?? []) as Subject[];
 
-      // 신법/구법 과정이고 이 학생 전용 전공 과목이 아직 없으면 프리셋 자동 삽입
-      const isSinbup = studentData?.courses?.name?.includes('신법');
-      const isGubup  = studentData?.courses?.name?.includes('구법');
-      const courseType = isSinbup ? '신법' : isGubup ? '구법' : null;
+      // 과정이 있고 이 학생 전용 과목이 아직 없으면 프리셋 자동 삽입
+      const courseName = studentData?.courses?.name ?? '';
+      const courseType = courseName.includes('신법') ? '신법'
+        : courseName.includes('구법') ? '구법'
+        : courseName || null;
       const hasStudentSubjects = loadedSubjects.some((s) => s.student_id === id);
       if (courseType && !hasStudentSubjects) {
         const { data: presets } = await supabase
@@ -723,6 +727,19 @@ export default function PlanPage() {
     });
   }
 
+  async function handleUpdateSubject() {
+    if (!editSubjectForm) return;
+    const { id: subjectId, name, credits, type } = editSubjectForm;
+    if (!name.trim()) return;
+    const supabase = createClient();
+    const { error } = await supabase.from('subjects').update({ name: name.trim(), credits, type }).eq('id', subjectId).eq('student_id', id);
+    if (error) { alert(`수정 실패: ${error.message}`); return; }
+    setSubjects((prev) => prev.map((s) => s.id === subjectId ? { ...s, name: name.trim(), credits, type } : s));
+    logActivity({ action: '과목 수정', target_type: 'subject', target_name: name.trim(), detail: student?.name });
+    setShowEditSubjectPopup(false);
+    setEditSubjectForm(null);
+  }
+
   // ── 핸들러: 학점은행 검색 ────────────────────────────────────
   function handleCbQueryChange(q: string) {
     setCbQuery(q);
@@ -769,6 +786,31 @@ export default function PlanPage() {
     const { error } = await supabase.from('student_prev_subjects').delete().eq('id', entryId);
     if (error) { alert(`삭제 실패: ${error.message}`); return; }
     setPrevSubjects((prev) => prev.filter((s) => s.id !== entryId));
+  }
+
+  async function handleUpdatePrevSubject() {
+    if (!editingPrevId || !prevForm.name.trim()) return;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('student_prev_subjects')
+      .update({ category: prevForm.category, name: prevForm.name.trim(), credits: prevForm.credits })
+      .eq('id', editingPrevId)
+      .select()
+      .single();
+    if (error) { alert(`수정 실패: ${error.message}`); return; }
+    setPrevSubjects((prev) => prev.map((s) => s.id === editingPrevId ? data as PrevSubject : s));
+    logActivity({ action: '전적대 과목 수정', target_type: 'prev_subject', target_name: prevForm.name, detail: student?.name });
+    setEditingPrevId(null);
+    setShowPrevPopup(false);
+    setPrevForm({ category: '전공', name: '', credits: 3 });
+    setCbQuery(''); setCbResults([]);
+  }
+
+  function openEditPrevSubject(s: PrevSubject) {
+    setPrevForm({ category: s.category, name: s.name, credits: s.credits });
+    setEditingPrevId(s.id);
+    setCbQuery(''); setCbResults([]);
+    setShowPrevPopup(true);
   }
 
 
@@ -1634,6 +1676,7 @@ export default function PlanPage() {
                 <span className={styles.prev_cat_badge}>{s.category}</span>
                 <span className={styles.credit_item_name}>{s.name}</span>
                 <span className={styles.credit_badge}>{s.credits}학점</span>
+                <button className={styles.item_edit_btn} onClick={() => openEditPrevSubject(s)}>수정</button>
                 <button className={styles.item_remove_btn} onClick={() => handleDeletePrevSubject(s.id)} aria-label="삭제">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1806,6 +1849,11 @@ export default function PlanPage() {
                           <span className={styles.subject_name}>{subject.name}</span>
                           {isPassed && (
                             <span className={styles.passed_badge}>이수</span>
+                          )}
+                          {subject.student_id && !isPassed && (
+                            <button className={styles.subject_edit_btn}
+                              onClick={(e) => { e.stopPropagation(); setEditSubjectForm({ id: subject.id, name: subject.name, credits: subject.credits, type: subject.type }); setShowEditSubjectPopup(true); }}
+                              aria-label="과목 수정">수정</button>
                           )}
                           {isCustom && !isPassed && (
                             <button className={styles.subject_delete_btn}
@@ -2023,10 +2071,8 @@ export default function PlanPage() {
                               {semIds.map((subjectId) => {
                                 const subject = subjects.find((s) => s.id === subjectId);
                                 if (!subject) return null;
-                                const subScore = semesterScores[sem.id]?.[subjectId];
-                                const subPassed = subScore !== undefined && subScore >= 60;
                                 return (
-                                  <div key={subjectId} className={`${styles.assigned_item} ${subPassed ? styles.assigned_item_passed : ''}`}>
+                                  <div key={subjectId} className={styles.assigned_item}>
                                     <div className={styles.assigned_info}>
                                       <span className={styles.assigned_name}>{subject.name}</span>
                                       {subject.subject_type && (
@@ -2036,24 +2082,12 @@ export default function PlanPage() {
                                       )}
                                       <span className={styles.credit_badge}>{subject.credits}학점</span>
                                     </div>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      placeholder="점수"
-                                      className={`${styles.score_input} ${subPassed ? styles.score_input_passed : ''}`}
-                                      value={subScore ?? ''}
-                                      onChange={(e) => handleScoreChange(sem.id, subjectId, e.target.value)}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    {!subPassed && (
-                                      <button className={styles.assigned_remove_btn}
-                                        onClick={() => handleRemoveAssigned(sem.id, subjectId)} aria-label="삭제">
-                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                                        </svg>
-                                      </button>
-                                    )}
+                                    <button className={styles.assigned_remove_btn}
+                                      onClick={() => handleRemoveAssigned(sem.id, subjectId)} aria-label="삭제">
+                                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                      </svg>
+                                    </button>
                                   </div>
                                 );
                               })}
@@ -2067,11 +2101,8 @@ export default function PlanPage() {
                       {currentSemesterSubjectIds.map((subjectId) => {
                         const subject = subjects.find((s) => s.id === subjectId);
                         if (!subject) return null;
-                        const semIdForSubj = getSubjectSemId(subjectId) ?? selectedSemester;
-                        const subScore = semesterScores[semIdForSubj]?.[subjectId];
-                        const subPassed = subScore !== undefined && subScore >= 60;
                         return (
-                          <div key={subjectId} className={`${styles.assigned_item} ${subPassed ? styles.assigned_item_passed : ''}`}>
+                          <div key={subjectId} className={styles.assigned_item}>
                             <div className={styles.assigned_info}>
                               <span className={styles.assigned_name}>{subject.name}</span>
                               {subject.subject_type && (
@@ -2081,24 +2112,12 @@ export default function PlanPage() {
                               )}
                               <span className={styles.credit_badge}>{subject.credits}학점</span>
                             </div>
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              placeholder="점수"
-                              className={`${styles.score_input} ${subPassed ? styles.score_input_passed : ''}`}
-                              value={subScore ?? ''}
-                              onChange={(e) => handleScoreChange(semIdForSubj, subjectId, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            {!subPassed && (
-                              <button className={styles.assigned_remove_btn}
-                                onClick={() => handleRemoveAssigned(selectedSemester, subjectId)} aria-label="삭제">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                              </button>
-                            )}
+                            <button className={styles.assigned_remove_btn}
+                              onClick={() => handleRemoveAssigned(selectedSemester, subjectId)} aria-label="삭제">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                              </svg>
+                            </button>
                           </div>
                         );
                       })}
@@ -2218,19 +2237,68 @@ export default function PlanPage() {
         </div>
       )}
 
-      {/* ── 팝업: 전적대 과목 추가 ── */}
-      {showPrevPopup && (
-        <div className={styles.popup_overlay} onClick={() => setShowPrevPopup(false)}>
+      {/* ── 팝업: 과목 수정 ── */}
+      {showEditSubjectPopup && editSubjectForm && (
+        <div className={styles.popup_overlay} onClick={() => { setShowEditSubjectPopup(false); setEditSubjectForm(null); }}>
           <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
             <div className={styles.popup_header}>
-              <span className={styles.popup_title}>전적대 이수과목 추가</span>
-              <button className={styles.popup_close} onClick={() => setShowPrevPopup(false)}>
+              <span className={styles.popup_title}>과목 수정</span>
+              <button className={styles.popup_close} onClick={() => { setShowEditSubjectPopup(false); setEditSubjectForm(null); }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div className={styles.popup_body}>
-              {/* 학점은행 검색 */}
               <div className={styles.popup_field}>
+                <label className={styles.popup_label}>과목명</label>
+                <input className={styles.popup_input} value={editSubjectForm.name}
+                  onChange={(e) => setEditSubjectForm((f) => f && ({ ...f, name: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateSubject(); }}
+                  autoFocus />
+              </div>
+              <div className={styles.popup_field}>
+                <label className={styles.popup_label}>학점</label>
+                <div className={styles.popup_radio_group}>
+                  {CREDIT_OPTIONS.map((c) => (
+                    <label key={c} className={`${styles.popup_radio} ${editSubjectForm.credits === c ? styles.popup_radio_active : ''}`}>
+                      <input type="radio" name="eCred" value={c} checked={editSubjectForm.credits === c}
+                        onChange={() => setEditSubjectForm((f) => f && ({ ...f, credits: c }))} />{c}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.popup_field}>
+                <label className={styles.popup_label}>유형</label>
+                <div className={styles.popup_radio_group}>
+                  {(['이론', '실습'] as const).map((t) => (
+                    <label key={t} className={`${styles.popup_radio} ${editSubjectForm.type === t ? styles.popup_radio_active : ''}`}>
+                      <input type="radio" name="eType" value={t} checked={editSubjectForm.type === t}
+                        onChange={() => setEditSubjectForm((f) => f && ({ ...f, type: t }))} />{t}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className={styles.popup_footer}>
+              <button className={styles.popup_cancel} onClick={() => { setShowEditSubjectPopup(false); setEditSubjectForm(null); }}>취소</button>
+              <button className={styles.popup_confirm} onClick={handleUpdateSubject} disabled={!editSubjectForm.name.trim()}>수정</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 팝업: 전적대 과목 추가/수정 ── */}
+      {showPrevPopup && (
+        <div className={styles.popup_overlay} onClick={() => { setShowPrevPopup(false); setEditingPrevId(null); setPrevForm({ category: '전공', name: '', credits: 3 }); setCbQuery(''); setCbResults([]); }}>
+          <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.popup_header}>
+              <span className={styles.popup_title}>{editingPrevId ? '전적대 이수과목 수정' : '전적대 이수과목 추가'}</span>
+              <button className={styles.popup_close} onClick={() => { setShowPrevPopup(false); setEditingPrevId(null); setPrevForm({ category: '전공', name: '', credits: 3 }); setCbQuery(''); setCbResults([]); }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className={styles.popup_body}>
+              {/* 학점은행 검색 — 추가 모드에서만 표시 */}
+              {!editingPrevId && <div className={styles.popup_field}>
                 <label className={styles.popup_label}>
                   학점은행 검색
                   <span className={styles.popup_label_sub}> · 과목명으로 검색 후 선택</span>
@@ -2268,9 +2336,9 @@ export default function PlanPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </div>}
 
-              <div className={styles.popup_divider} />
+              {!editingPrevId && <div className={styles.popup_divider} />}
 
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>분류</label>
@@ -2287,7 +2355,7 @@ export default function PlanPage() {
                 <label className={styles.popup_label}>과목명</label>
                 <input className={styles.popup_input} placeholder="검색 선택 또는 직접 입력" value={prevForm.name}
                   onChange={(e) => setPrevForm((f) => ({ ...f, name: e.target.value }))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddPrevSubject(); }} />
+                  onKeyDown={(e) => { if (e.key === 'Enter') { editingPrevId ? handleUpdatePrevSubject() : handleAddPrevSubject(); } }} />
               </div>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>학점</label>
@@ -2302,8 +2370,12 @@ export default function PlanPage() {
               </div>
             </div>
             <div className={styles.popup_footer}>
-              <button className={styles.popup_cancel} onClick={() => setShowPrevPopup(false)}>취소</button>
-              <button className={styles.popup_confirm} onClick={handleAddPrevSubject} disabled={!prevForm.name.trim()}>추가</button>
+              <button className={styles.popup_cancel} onClick={() => { setShowPrevPopup(false); setEditingPrevId(null); setPrevForm({ category: '전공', name: '', credits: 3 }); setCbQuery(''); setCbResults([]); }}>취소</button>
+              {editingPrevId ? (
+                <button className={styles.popup_confirm} onClick={handleUpdatePrevSubject} disabled={!prevForm.name.trim()}>수정</button>
+              ) : (
+                <button className={styles.popup_confirm} onClick={handleAddPrevSubject} disabled={!prevForm.name.trim()}>추가</button>
+              )}
             </div>
           </div>
         </div>

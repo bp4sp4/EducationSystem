@@ -150,3 +150,11 @@
   padding: 24px 28px;
 }
 
+
+
+
+.header_leftdd{
+  display: flex;
+  align-items: center;
+  -webkit-text-size-adjust: none;
+}
