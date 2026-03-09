@@ -63,6 +63,10 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
   const [majorOpen, setMajorOpen] = useState(false);
   const majorRef = useRef<HTMLDivElement>(null);
 
+  const [centerInput, setCenterInput] = useState('');
+  const [centerOpen, setCenterOpen] = useState(false);
+  const centerRef = useRef<HTMLDivElement>(null);
+
   const [allcareStatus, setAllcareStatus] = useState<{
     loading: boolean;
     subscribed: boolean | null;
@@ -94,6 +98,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (majorRef.current && !majorRef.current.contains(e.target as Node)) setMajorOpen(false);
+      if (centerRef.current && !centerRef.current.contains(e.target as Node)) setCenterOpen(false);
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -331,7 +336,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                   value={form.manager_name} onChange={(e) => set('manager_name', e.target.value)} />
               </div>
 
-              {/* 등록교육원 (다중 선택) */}
+              {/* 등록교육원 (콤보박스) */}
               <div className={styles.form_field}>
                 <label className={styles.form_label}>등록교육원</label>
                 {centerTags.length > 0 && (
@@ -345,14 +350,60 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                     ))}
                   </div>
                 )}
-                <ModalSelect
-                  value=""
-                  placeholder="+ 교육원 추가"
-                  options={centerSuggestions
-                    .filter((c) => !centerTags.includes(c))
-                    .map((c) => ({ value: c, label: c }))}
-                  onChange={(val) => addCenter(val)}
-                />
+                <div className={styles.major_wrap} ref={centerRef}>
+                  <input
+                    className={styles.major_input}
+                    placeholder="교육원 검색 또는 직접 입력"
+                    value={centerInput}
+                    onChange={(e) => { setCenterInput(e.target.value); setCenterOpen(true); }}
+                    onFocus={() => setCenterOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const val = centerInput.trim();
+                        if (val) { addCenter(val); setCenterInput(''); setCenterOpen(false); }
+                      }
+                    }}
+                    autoComplete="off"
+                  />
+                  <svg
+                    width="12" height="12" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    className={`${styles.major_chevron} ${centerOpen ? styles.major_chevron_open : ''}`}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  {centerOpen && (
+                    <div className={styles.major_dropdown}>
+                      {centerSuggestions
+                        .filter((c) => !centerTags.includes(c) && (!centerInput || c.includes(centerInput)))
+                        .map((c) => (
+                          <div
+                            key={c}
+                            className={styles.major_option}
+                            onMouseDown={(e) => { e.preventDefault(); addCenter(c); setCenterInput(''); setCenterOpen(false); }}
+                          >
+                            {c}
+                          </div>
+                        ))}
+                      {centerInput.trim() && !centerSuggestions.includes(centerInput.trim()) && (
+                        <div
+                          className={styles.major_option}
+                          style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+                          onMouseDown={(e) => { e.preventDefault(); addCenter(centerInput.trim()); setCenterInput(''); setCenterOpen(false); }}
+                        >
+                          + &quot;{centerInput.trim()}&quot; 추가
+                        </div>
+                      )}
+                      {centerSuggestions.filter((c) => !centerTags.includes(c) && (!centerInput || c.includes(centerInput))).length === 0
+                        && !centerInput.trim() && (
+                        <div className={styles.major_option} style={{ color: 'var(--color-text-tertiary)', cursor: 'default' }}>
+                          추가 가능한 교육원 없음
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 개강반 */}
