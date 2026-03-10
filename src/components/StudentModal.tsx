@@ -12,6 +12,8 @@ const EDUCATION_LEVELS: EducationLevel[] = [
 
 const STATUSES = ['등록', '수료', '환불'] as const;
 
+const MANAGERS = ['이규준', '송예영', '김하준'];
+
 const DEFAULT_COURSES: Course[] = [
   { id: 1, name: '사회복지사2급(구법)', created_at: '' },
   { id: 2, name: '사회복지사2급(신법)', created_at: '' },
@@ -59,7 +61,8 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
   const [form, setForm] = useState<StudentFormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [classStartInput, setClassStartInput] = useState('');
-  const [majorSuggestions, setMajorSuggestions] = useState<string[]>([]);
+  const [bachelorSuggestions, setBachelorSuggestions] = useState<string[]>([]);
+  const [associateSuggestions, setAssociateSuggestions] = useState<string[]>([]);
   const [majorOpen, setMajorOpen] = useState(false);
   const majorRef = useRef<HTMLDivElement>(null);
 
@@ -80,18 +83,21 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
     const supabase = createClient();
     supabase
       .from('credit_cert_presets')
-      .select('bachelor_major')
-      .not('bachelor_major', 'is', null)
+      .select('bachelor_major, associate_major')
       .then(({ data }) => {
         if (!data) return;
-        const set = new Set<string>();
-        data.forEach((row) => {
-          row.bachelor_major?.split(',').forEach((m: string) => {
-            const trimmed = m.trim();
-            if (trimmed) set.add(trimmed);
+        const toSortedList = (field: 'bachelor_major' | 'associate_major') => {
+          const set = new Set<string>();
+          data.forEach((row) => {
+            (row[field] as string | null)?.split(',').forEach((m: string) => {
+              const trimmed = m.trim();
+              if (trimmed) set.add(trimmed);
+            });
           });
-        });
-        setMajorSuggestions(Array.from(set).sort());
+          return Array.from(set).sort();
+        };
+        setBachelorSuggestions(toSortedList('bachelor_major'));
+        setAssociateSuggestions(toSortedList('associate_major'));
       });
   }, []);
 
@@ -176,6 +182,11 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
     return Number(val).toLocaleString();
   }
 
+  // 학력에 따라 전공 자동완성 목록 결정
+  const majorSuggestions = form.education_level === '4년제졸업'
+    ? bachelorSuggestions
+    : associateSuggestions;
+
   const selectedCourseName = courseList.find((c) => c.id === Number(form.course_id))?.name ?? '';
   const isRehabCourse = selectedCourseName.includes('실습');
   const degreeOptions = isRehabCourse ? [] : getDesiredDegreeOptions(form.education_level);
@@ -195,6 +206,10 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.phone.trim()) { alert('전화번호를 입력해주세요.'); return; }
+    if (!form.education_level) { alert('최종학력을 선택해주세요.'); return; }
+    if (!form.course_id) { alert('희망자격증과정을 선택해주세요.'); return; }
+    if (!form.manager_name) { alert('담당자를 선택해주세요.'); return; }
     setLoading(true);
     try {
       await onSubmit(form);
@@ -225,7 +240,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
               {/* 전화번호 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>전화번호</label>
+                <label className={styles.form_label}>전화번호<span className={styles.form_required}>*</span></label>
                 <input className={styles.form_input} placeholder="010-0000-0000"
                   value={form.phone} inputMode="numeric"
                   onChange={(e) => handlePhone(e.target.value)} />
@@ -233,7 +248,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
               {/* 최종학력 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>최종학력</label>
+                <label className={styles.form_label}>최종학력<span className={styles.form_required}>*</span></label>
                 <ModalSelect
                   value={form.education_level}
                   placeholder="선택"
@@ -303,7 +318,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
               {/* 희망자격증과정 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>희망자격증과정</label>
+                <label className={styles.form_label}>희망자격증과정<span className={styles.form_required}>*</span></label>
                 <ModalSelect
                   value={form.course_id !== '' ? String(form.course_id) : ''}
                   placeholder="선택"
@@ -331,9 +346,13 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
 
               {/* 담당자 */}
               <div className={styles.form_field}>
-                <label className={styles.form_label}>담당자</label>
-                <input className={styles.form_input} placeholder="담당자 이름 입력"
-                  value={form.manager_name} onChange={(e) => set('manager_name', e.target.value)} />
+                <label className={styles.form_label}>담당자<span className={styles.form_required}>*</span></label>
+                <ModalSelect
+                  value={form.manager_name}
+                  placeholder="선택"
+                  options={MANAGERS.map((m) => ({ value: m, label: m }))}
+                  onChange={(val) => set('manager_name', val)}
+                />
               </div>
 
               {/* 등록교육원 (콤보박스) */}
