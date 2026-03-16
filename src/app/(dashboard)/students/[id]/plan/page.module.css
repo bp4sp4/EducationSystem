@@ -2609,23 +2609,26 @@
 }
 
 .fv_total_row {
-  background: #F1F5F9;
+  background: #FFF9C4;
 }
 
 .fv_total_label {
   padding: 13px 14px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid #F0D800;
   font-size: 13px;
   font-weight: 700;
   color: #1E293B;
+  background: #FFF9C4;
 }
 
 .fv_total_credit {
   padding: 13px 14px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid #F0D800;
   text-align: center;
   font-size: 15px;
   color: #1E293B;
+  background: #FFF9C4;
+  font-weight: 700;
 }
 
 .fv_stats {
