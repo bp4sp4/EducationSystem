@@ -119,6 +119,7 @@ interface PlanConfig {
   subjectTarget: number | null;
   targets: PlanTarget[];
   practice?: PracticeRequirement;
+  showPrevSubjects?: boolean;
 }
 
 const JUNGTAE_GROUP = ['고졸', '2년제중퇴', '3년제중퇴', '4년제중퇴'];
@@ -184,6 +185,19 @@ function getPlanConfig(
         { label: '교양', categories: ['교양'], target: 30, color: '#059669' },
         { label: '일반', categories: ['일반'], target: 50, color: '#D97706' },
       ],
+    };
+  }
+
+  // 2년제졸업 + 구법 → 42학점 전공 + 전적대이수과목 표시
+  if (level === '2년제졸업' && courseName?.includes('구법')) {
+    return {
+      isHighSchool: false,
+      totalTarget: 42,
+      subjectTarget: 8,
+      targets: [
+        { label: '전공', categories: ['전공'], target: 42, color: '#3182F6' },
+      ],
+      showPrevSubjects: true,
     };
   }
 
@@ -1388,7 +1402,10 @@ export default function PlanPage() {
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
           <span className={styles.edu_banner_text}>
-            <strong>{student.education_level ?? '학력 미입력'}</strong> — 전공 51학점 17과목 이수
+            <strong>{student.education_level ?? '학력 미입력'}</strong>
+            {' — '}
+            {planConfig.targets.map((t) => `${t.label} ${t.target}학점`).join(' + ')} 이수
+            {planConfig.showPrevSubjects && <span className={styles.edu_banner_sub}> (+ 전적대이수과목 포함)</span>}
           </span>
         </div>
       ))}
@@ -1554,7 +1571,7 @@ export default function PlanPage() {
             )}
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>목표 학점</div>
-              <div className={styles.stat_value}>{TARGET_CREDITS}<span className={styles.stat_unit}>학점</span></div>
+              <div className={styles.stat_value}>{planConfig.totalTarget}<span className={styles.stat_unit}>학점</span></div>
             </div>
             <div className={styles.stat_card}>
               <div className={styles.stat_label}>진행률</div>
@@ -1640,8 +1657,8 @@ export default function PlanPage() {
         )}
       </div>}
 
-      {/* ── 전적대 이수과목 — 학위과정 또는 4년제졸업(구법 중복과목) ── */}
-      {(planConfig.isHighSchool || student.education_level === '4년제졸업') && <div className={styles.credit_section}>
+      {/* ── 전적대 이수과목 — 학위과정 또는 4년제졸업(구법 중복과목) 또는 2년제졸업+구법 ── */}
+      {(planConfig.isHighSchool || student.education_level === '4년제졸업' || planConfig.showPrevSubjects) && <div className={styles.credit_section}>
         <div className={styles.credit_section_header}>
           <div className={styles.credit_section_title_wrap}>
             <span className={styles.section_title}>전적대 이수과목</span>
