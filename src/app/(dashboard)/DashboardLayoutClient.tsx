@@ -67,6 +67,12 @@ export default function DashboardLayoutClient({
               className={`${styles.nav_item} ${pathname.startsWith('/admin/subjects') ? styles.nav_item_active : ''}`}
             >과목관리</Link>
           )}
+          {profile?.role === 'super_admin' && (
+            <Link
+              href="/admin/managers"
+              className={`${styles.nav_item} ${pathname.startsWith('/admin/managers') ? styles.nav_item_active : ''}`}
+            >담당자 관리</Link>
+          )}
         </div>
       </nav>
 

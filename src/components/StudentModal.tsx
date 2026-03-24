@@ -12,8 +12,6 @@ const EDUCATION_LEVELS: EducationLevel[] = [
 
 const STATUSES = ['등록', '수료', '환불'] as const;
 
-const MANAGERS = ['이규준', '송예영', '김하준', '박혜경'];
-
 const DEFAULT_COURSES: Course[] = [
   { id: 1, name: '사회복지사2급(구법)', created_at: '' },
   { id: 2, name: '사회복지사2급(신법)', created_at: '' },
@@ -36,6 +34,7 @@ interface Props {
   student?: Student | null;
   courses: Course[];
   centers: EducationCenter[];
+  managers?: string[];
   onClose: () => void;
   onSubmit: (data: StudentFormData) => Promise<void>;
 }
@@ -57,7 +56,7 @@ const EMPTY_FORM: StudentFormData = {
   notes: '',
 };
 
-export default function StudentModal({ student, courses, centers, onClose, onSubmit }: Props) {
+export default function StudentModal({ student, courses, centers, managers = [], onClose, onSubmit }: Props) {
   const [form, setForm] = useState<StudentFormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [classStartInput, setClassStartInput] = useState('');
@@ -350,7 +349,7 @@ export default function StudentModal({ student, courses, centers, onClose, onSub
                 <ModalSelect
                   value={form.manager_name}
                   placeholder="선택"
-                  options={MANAGERS.map((m) => ({ value: m, label: m }))}
+                  options={managers.map((m) => ({ value: m, label: m }))}
                   onChange={(val) => set('manager_name', val)}
                 />
               </div>

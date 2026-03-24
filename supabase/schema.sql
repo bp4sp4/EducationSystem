@@ -497,6 +497,33 @@ insert into public.dokaksa_presets (stage, category, name, credits, subject_type
   ('3단계', '정보통신학', '네트워크프로그래밍',5,'전공', 8);
 
 -- ============================
+-- 담당자
+-- ============================
+
+create table public.managers (
+  id serial primary key,
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz default now()
+);
+
+alter table public.managers enable row level security;
+
+create policy "인증된 유저 담당자 조회" on public.managers
+  for select to authenticated using (true);
+
+create policy "슈퍼관리자 담당자 수정" on public.managers
+  for all using (
+    exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'super_admin')
+  );
+
+insert into public.managers (name, sort_order) values
+  ('이규준', 1),
+  ('송예영', 2),
+  ('김하준', 3),
+  ('박혜경', 4);
+
+-- ============================
 -- 학생 메모
 -- ============================
 

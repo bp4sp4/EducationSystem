@@ -55,6 +55,7 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [centers, setCenters] = useState<EducationCenter[]>([]);
+  const [managersDb, setManagersDb] = useState<string[]>([]);
   const [monthly, setMonthly] = useState<MonthlyEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -86,10 +87,11 @@ export default function StudentsPage() {
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       setIsSuperAdmin(profile?.role === 'super_admin');
     }
-    const [studentsRes, coursesRes, centersRes] = await Promise.all([
+    const [studentsRes, coursesRes, centersRes, managersRes] = await Promise.all([
       supabase.from('students').select('*, courses(*)').order('registered_at', { ascending: false }),
       supabase.from('courses').select('*').order('id'),
       supabase.from('education_centers').select('*').order('id'),
+      supabase.from('managers').select('name').order('sort_order'),
     ]);
 
     if (studentsRes.error) console.error('학생 조회 에러:', studentsRes.error.message, studentsRes.error.code, studentsRes.error.details, studentsRes.error.hint);
@@ -98,6 +100,7 @@ export default function StudentsPage() {
     setStudents(data);
     setCourses((coursesRes.data as Course[]) ?? []);
     setCenters((centersRes.data as EducationCenter[]) ?? []);
+    setManagersDb((managersRes.data ?? []).map((m: { name: string }) => m.name));
 
     const monthMap: Record<string, number> = {};
     data.forEach((s) => {
@@ -672,6 +675,7 @@ export default function StudentsPage() {
           student={editTarget}
           courses={courses}
           centers={centers}
+          managers={managersDb}
           onClose={() => setModalOpen(false)}
           onSubmit={handleSubmit}
         />

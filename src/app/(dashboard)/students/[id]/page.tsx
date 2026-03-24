@@ -76,10 +76,11 @@ export default function StudentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
 
-  const [student,   setStudent]   = useState<Student | null>(null);
-  const [courses,   setCourses]   = useState<Course[]>([]);
-  const [centers,   setCenters]   = useState<EducationCenter[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [student,    setStudent]    = useState<Student | null>(null);
+  const [courses,    setCourses]    = useState<Course[]>([]);
+  const [centers,    setCenters]    = useState<EducationCenter[]>([]);
+  const [managersDb, setManagersDb] = useState<string[]>([]);
+  const [modalOpen,  setModalOpen]  = useState(false);
 
   const [activeTab, setActiveTab] = useState<DetailTab>('메모');
 
@@ -109,16 +110,18 @@ export default function StudentDetailPage() {
     let cancelled = false;
     const supabase = createClient();
     (async () => {
-      const [s, c, e, { data: { user } }] = await Promise.all([
+      const [s, c, e, mgr, { data: { user } }] = await Promise.all([
         supabase.from('students').select('*, courses(*)').eq('id', id).single(),
         supabase.from('courses').select('*').order('id'),
         supabase.from('education_centers').select('*').order('id'),
+        supabase.from('managers').select('name').order('sort_order'),
         supabase.auth.getUser(),
       ]);
       if (cancelled) return;
       setStudent(s.data as Student);
       setCourses((c.data as Course[]) ?? []);
       setCenters((e.data as EducationCenter[]) ?? []);
+      setManagersDb((mgr.data ?? []).map((m: { name: string }) => m.name));
 
       if (user) {
         const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
@@ -511,6 +514,7 @@ export default function StudentDetailPage() {
           student={student}
           courses={courses}
           centers={centers}
+          managers={managersDb}
           onClose={() => setModalOpen(false)}
           onSubmit={handleSubmit}
         />
