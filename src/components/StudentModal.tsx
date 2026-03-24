@@ -12,7 +12,7 @@ const EDUCATION_LEVELS: EducationLevel[] = [
 
 const STATUSES = ['등록', '수료', '환불'] as const;
 
-const MANAGERS = ['이규준', '송예영', '김하준'];
+const MANAGERS = ['이규준', '송예영', '김하준', '박혜경'];
 
 const DEFAULT_COURSES: Course[] = [
   { id: 1, name: '사회복지사2급(구법)', created_at: '' },
