@@ -69,6 +69,8 @@ export default function StudentsPage() {
   const [logDateTo, setLogDateTo] = useState('');
   const [logPage, setLogPage] = useState(1);
   const LOG_PAGE_SIZE = 10;
+  const [studentPage, setStudentPage] = useState(1);
+  const STUDENT_PAGE_SIZE = 10;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Student | null>(null);
@@ -129,6 +131,8 @@ export default function StudentsPage() {
     if (activeTab === '활동로그' && isSuperAdmin) fetchLogs();
   }, [activeTab, isSuperAdmin, fetchLogs]);
 
+  useEffect(() => { setStudentPage(1); }, [search, filterStatus, filterCenter, filterBatch, filterManager, filterCourse]);
+
   const batches = Array.from(new Set(
     students.flatMap((s) => s.class_start?.split(',').map((v) => v.trim()).filter(Boolean) ?? [])
   )) as string[];
@@ -156,6 +160,9 @@ export default function StudentsPage() {
   const total    = activeStudents.length;
   const enrolled  = activeStudents.filter((s) => s.status === '등록').length;
   const completed = activeStudents.filter((s) => s.status === '수료').length;
+
+  const totalStudentPages = Math.ceil(filtered.length / STUDENT_PAGE_SIZE);
+  const pagedStudents = filtered.slice((studentPage - 1) * STUDENT_PAGE_SIZE, studentPage * STUDENT_PAGE_SIZE);
 
   async function handleSubmit(data: StudentFormData) {
     const payload = {
@@ -351,7 +358,7 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((s) => {
+                {pagedStudents.map((s) => {
                   const status = STATUS_MAP[s.status];
                   return (
                     <tr key={s.id} className={styles.table_row}>
@@ -387,7 +394,24 @@ export default function StudentsPage() {
               </tbody>
             </table>
             <div className={styles.table_footer}>
-              <span className={styles.table_count}>전체 {total}명 중 {filtered.length}명 표시</span>
+              <span className={styles.table_count}>전체 {total}명 중 {filtered.length}명 ({studentPage}/{totalStudentPages} 페이지)</span>
+              {totalStudentPages > 1 && (
+                <div className={styles.student_pagination}>
+                  <button className={styles.log_page_btn} disabled={studentPage === 1} onClick={() => setStudentPage(p => p - 1)}>이전</button>
+                  {Array.from({ length: totalStudentPages }, (_, i) => i + 1)
+                    .filter(p => p === 1 || p === totalStudentPages || Math.abs(p - studentPage) <= 2)
+                    .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                      if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                      acc.push(p); return acc;
+                    }, [])
+                    .map((p, i) => p === '...' ? (
+                      <span key={`el-${i}`} className={styles.log_page_ellipsis}>…</span>
+                    ) : (
+                      <button key={p} className={`${styles.log_page_btn} ${studentPage === p ? styles.log_page_btn_active : ''}`} onClick={() => setStudentPage(p as number)}>{p}</button>
+                    ))}
+                  <button className={styles.log_page_btn} disabled={studentPage === totalStudentPages} onClick={() => setStudentPage(p => p + 1)}>다음</button>
+                </div>
+              )}
             </div>
           </>
         )}

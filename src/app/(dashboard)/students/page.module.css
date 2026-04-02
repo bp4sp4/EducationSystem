@@ -704,9 +704,19 @@
 
 /* ── 테이블 푸터 ── */
 .table_footer {
-  padding: 10px 16px;
+  padding: 10px 16px 12px;
   border-top: 1px solid #F2F4F6;
   background: #FAFAFA;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.student_pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .table_count {
