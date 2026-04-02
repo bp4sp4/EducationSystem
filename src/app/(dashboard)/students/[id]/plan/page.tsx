@@ -1681,7 +1681,7 @@ export default function PlanPage() {
             )}
             {student.courses?.name?.includes('신법') && (
               <button className={styles.section_add_btn_gubup} onClick={() => openGubupPopup('신법')}>
-                신법과목 추가
+                신법 과목 추가
               </button>
             )}
             <button className={styles.section_add_btn} onClick={() => setShowPrevPopup(true)}>+ 추가</button>
