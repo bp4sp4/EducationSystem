@@ -264,6 +264,7 @@ export default function PlanPage() {
   const [showPrevPopup,   setShowPrevPopup]   = useState(false);
   const [editingPrevId,   setEditingPrevId]   = useState<string | null>(null);
   const [showGubupPopup,  setShowGubupPopup]  = useState(false);
+  const [gubupCourseType, setGubupCourseType] = useState<'구법' | '신법'>('구법');
   const [gubupPresets,    setGubupPresets]    = useState<{ name: string; credits: number; subject_type: '필수' | '선택' }[]>([]);
   const [prevForm, setPrevForm] = useState({ category: '전공' as SubjectCategory, name: '', credits: 3 });
   const [cbQuery,      setCbQuery]      = useState('');
@@ -681,15 +682,19 @@ export default function PlanPage() {
     setNewKisuNumber('');
   }
 
-  // ── 구법 프리셋 fetch ─────────────────────────────────────────
-  async function openGubupPopup() {
+  // ── 구법/신법 프리셋 fetch ─────────────────────────────────────
+  async function openGubupPopup(courseType: '구법' | '신법' = '구법') {
+    if (courseType !== gubupCourseType) {
+      setGubupCourseType(courseType);
+      setGubupPresets([]);
+    }
     setShowGubupPopup(true);
-    if (gubupPresets.length > 0) return;
+    if (gubupPresets.length > 0 && courseType === gubupCourseType) return;
     const supabase = createClient();
     const { data } = await supabase
       .from('subject_presets')
       .select('name, credits, subject_type')
-      .eq('course_type', '구법')
+      .eq('course_type', courseType)
       .order('sort_order');
     if (data) setGubupPresets(data as { name: string; credits: number; subject_type: '필수' | '선택' }[]);
   }
@@ -705,7 +710,7 @@ export default function PlanPage() {
     }).select().single();
     if (error) { alert(`추가 실패: ${error.message}`); return; }
     setPrevSubjects((prev) => [...prev, data as PrevSubject]);
-    logActivity({ action: '구법 과목 추가', target_type: 'prev_subject', target_name: subj.name, detail: student?.name });
+    logActivity({ action: `${gubupCourseType} 과목 추가`, target_type: 'prev_subject', target_name: subj.name, detail: student?.name });
   }
 
   // ── 핸들러: 과목 수기 추가 (DB) ─────────────────────────────
@@ -1670,8 +1675,13 @@ export default function PlanPage() {
           </div>
           <div className={styles.section_btn_group}>
             {student.courses?.name?.includes('구법') && (
-              <button className={styles.section_add_btn_gubup} onClick={openGubupPopup}>
+              <button className={styles.section_add_btn_gubup} onClick={() => openGubupPopup('구법')}>
                 구법 과목 추가
+              </button>
+            )}
+            {student.courses?.name?.includes('신법') && (
+              <button className={styles.section_add_btn_gubup} onClick={() => openGubupPopup('신법')}>
+                신법과목 추가
               </button>
             )}
             <button className={styles.section_add_btn} onClick={() => setShowPrevPopup(true)}>+ 추가</button>
@@ -2212,7 +2222,7 @@ export default function PlanPage() {
         <div className={styles.popup_overlay} onClick={() => setShowGubupPopup(false)}>
           <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
             <div className={styles.popup_header}>
-              <span className={styles.popup_title}>구법 과목 추가</span>
+              <span className={styles.popup_title}>{gubupCourseType}과목 추가</span>
               <button className={styles.popup_close} onClick={() => setShowGubupPopup(false)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
