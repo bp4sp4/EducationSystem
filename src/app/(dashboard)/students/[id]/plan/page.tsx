@@ -683,6 +683,7 @@ export default function PlanPage() {
   }
 
   // ── 구법/신법 프리셋 fetch ─────────────────────────────────────
+  // 신법: 필수 → 신법, 선택 → 구법
   async function openGubupPopup(courseType: '구법' | '신법' = '구법') {
     if (courseType !== gubupCourseType) {
       setGubupCourseType(courseType);
@@ -691,12 +692,21 @@ export default function PlanPage() {
     setShowGubupPopup(true);
     if (gubupPresets.length > 0 && courseType === gubupCourseType) return;
     const supabase = createClient();
-    const { data } = await supabase
-      .from('subject_presets')
-      .select('name, credits, subject_type')
-      .eq('course_type', courseType)
-      .order('sort_order');
-    if (data) setGubupPresets(data as { name: string; credits: number; subject_type: '필수' | '선택' }[]);
+    if (courseType === '신법') {
+      const [sinRes, guRes] = await Promise.all([
+        supabase.from('subject_presets').select('name, credits, subject_type').eq('course_type', '신법').eq('subject_type', '필수').order('sort_order'),
+        supabase.from('subject_presets').select('name, credits, subject_type').eq('course_type', '구법').eq('subject_type', '선택').order('sort_order'),
+      ]);
+      const combined = [...(sinRes.data ?? []), ...(guRes.data ?? [])];
+      setGubupPresets(combined as { name: string; credits: number; subject_type: '필수' | '선택' }[]);
+    } else {
+      const { data } = await supabase
+        .from('subject_presets')
+        .select('name, credits, subject_type')
+        .eq('course_type', courseType)
+        .order('sort_order');
+      if (data) setGubupPresets(data as { name: string; credits: number; subject_type: '필수' | '선택' }[]);
+    }
   }
 
   // ── 핸들러: 구법 과목 추가 → 전적대 이수과목에 등록 ─────────
