@@ -41,7 +41,7 @@ export default function DashboardLayoutClient({
               height={32}
               className={styles.header_logo_img}
             />
-            <h1 className={styles.header_title}>한평생교육원 통합 관리 시스템</h1>
+            <h1 className={styles.header_title}>교육원 학생관리 시스템</h1>
           </div>
           <div className={styles.header_right}>
             <div className={styles.header_user}>

@@ -201,6 +201,32 @@ function getPlanConfig(
     };
   }
 
+  // 2년제졸업 + 신법 → 51학점 전공 + 전적대이수과목 표시
+  if (level === '2년제졸업' && courseName?.includes('신법')) {
+    return {
+      isHighSchool: false,
+      totalTarget: 51,
+      subjectTarget: 8,
+      targets: [
+        { label: '전공', categories: ['전공'], target: 51, color: '#3182F6' },
+      ],
+      showPrevSubjects: true,
+    };
+  }
+
+  // 4년제졸업 + 신법 → 51학점 전공 + 전적대이수과목 표시
+  if (level === '4년제졸업' && courseName?.includes('신법')) {
+    return {
+      isHighSchool: false,
+      totalTarget: 51,
+      subjectTarget: 8,
+      targets: [
+        { label: '전공', categories: ['전공'], target: 51, color: '#3182F6' },
+      ],
+      showPrevSubjects: true,
+    };
+  }
+
   // 졸업군 → 없음 → 51학점 전공만 (전적대 불필요)
   if (GRAD_ALL.includes(level)) {
     return {
@@ -1672,7 +1698,7 @@ export default function PlanPage() {
         )}
       </div>}
 
-      {/* ── 전적대 이수과목 — 학위과정 또는 4년제졸업(구법 중복과목) 또는 2년제졸업+구법 ── */}
+      {/* ── 전적대 이수과목 — 학위과정 또는 4년제졸업 또는 showPrevSubjects 설정된 경우 ── */}
       {(planConfig.isHighSchool || student.education_level === '4년제졸업' || planConfig.showPrevSubjects) && <div className={styles.credit_section}>
         <div className={styles.credit_section_header}>
           <div className={styles.credit_section_title_wrap}>
