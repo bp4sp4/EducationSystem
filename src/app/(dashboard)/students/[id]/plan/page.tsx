@@ -304,6 +304,7 @@ export default function PlanPage() {
   const [certPresetResults, setCertPresetResults] = useState<{ id: number; name: string; credits: number; associate_major: string | null; bachelor_major: string | null }[]>([]);
   const [certPresetSearching, setCertPresetSearching] = useState(false);
   const certPresetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [editCertId, setEditCertId] = useState<string | null>(null);
 
   const [showDokaksaPopup, setShowDokaksaPopup] = useState(false);
   const [dokaksaForm, setDokaksaForm] = useState({ stage: '1단계' as typeof DOKAKSA_STAGES[number], subject_name: '', credits: 4 });
@@ -873,6 +874,12 @@ export default function PlanPage() {
   async function handleAddCert() {
     if (!certForm.name.trim()) return;
 
+    // 수정 모드
+    if (editCertId) {
+      await handleUpdateCert();
+      return;
+    }
+
     // ── 자격증 개수 제한 검증 ──────────────────────────────────
     const desiredDegree = student?.desired_degree;
     const maxTotal = desiredDegree === '학사' ? 3 : 2; // 학사 3개, 전문학사 2개
@@ -903,6 +910,25 @@ export default function PlanPage() {
     setCertForm({ name: '', credits: 3, acquired_date: '', credit_type: '일반' });
     setCertPresetQuery('');
     setCertPresetResults([]);
+    setShowCertPopup(false);
+  }
+
+  async function handleUpdateCert() {
+    if (!editCertId || !certForm.name.trim()) return;
+    const supabase = createClient();
+    const { data, error } = await supabase.from('student_credit_certs').update({
+      name: certForm.name.trim(),
+      credits: certForm.credits,
+      acquired_date: certForm.acquired_date || null,
+      credit_type: certForm.credit_type,
+    }).eq('id', editCertId).select().single();
+    if (error) { alert(`수정 실패: ${error.message}`); return; }
+    setCreditCerts((prev) => prev.map((c) => c.id === editCertId ? data as CreditCert : c));
+    logActivity({ action: '자격증 수정', target_type: 'cert', target_name: certForm.name, detail: `${certForm.credit_type} / ${student?.name}` });
+    setCertForm({ name: '', credits: 3, acquired_date: '', credit_type: '일반' });
+    setCertPresetQuery('');
+    setCertPresetResults([]);
+    setEditCertId(null);
     setShowCertPopup(false);
   }
 
@@ -1650,6 +1676,17 @@ export default function PlanPage() {
                 <span className={styles.credit_item_name}>{c.name}</span>
                 {c.acquired_date && <span className={styles.credit_item_date}>{c.acquired_date}</span>}
                 <span className={styles.credit_badge}>{c.credits}학점</span>
+                <button className={styles.item_edit_btn} onClick={() => {
+                  setEditCertId(c.id);
+                  setCertForm({ name: c.name, credits: c.credits, acquired_date: c.acquired_date ?? '', credit_type: c.credit_type });
+                  setCertPresetQuery(c.name);
+                  setCertPresetResults([]);
+                  setShowCertPopup(true);
+                }} aria-label="수정">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
                 <button className={styles.item_remove_btn} onClick={() => handleDeleteCert(c.id)} aria-label="삭제">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -2444,13 +2481,13 @@ export default function PlanPage() {
         </div>
       )}
 
-      {/* ── 팝업: 학점인정 자격증 추가 ── */}
+      {/* ── 팝업: 학점인정 자격증 추가/수정 ── */}
       {showCertPopup && (
-        <div className={styles.popup_overlay} onClick={() => setShowCertPopup(false)}>
+        <div className={styles.popup_overlay} onClick={() => { setShowCertPopup(false); setEditCertId(null); }}>
           <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
             <div className={styles.popup_header}>
-              <span className={styles.popup_title}>학점인정 자격증 추가</span>
-              <button className={styles.popup_close} onClick={() => setShowCertPopup(false)}>
+              <span className={styles.popup_title}>{editCertId ? '학점인정 자격증 수정' : '학점인정 자격증 추가'}</span>
+              <button className={styles.popup_close} onClick={() => { setShowCertPopup(false); setEditCertId(null); }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
@@ -2484,14 +2521,10 @@ export default function PlanPage() {
               </div>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>인정 학점</label>
-                <div className={styles.popup_radio_group}>
-                  {[1,2,3,4,5,6,9,12,15,18,20].map((c) => (
-                    <label key={c} className={`${styles.popup_radio} ${certForm.credits === c ? styles.popup_radio_active : ''}`}>
-                      <input type="radio" name="certCred" value={c} checked={certForm.credits === c}
-                        onChange={() => setCertForm((f) => ({ ...f, credits: c }))} />{c}
-                    </label>
-                  ))}
-                </div>
+                <input className={styles.popup_input} type="number" min={1} max={30}
+                  value={certForm.credits}
+                  onChange={(e) => setCertForm((f) => ({ ...f, credits: Number(e.target.value) }))}
+                  placeholder="학점 입력 (예: 3)" />
               </div>
               <div className={styles.popup_field}>
                 <label className={styles.popup_label}>취득일 (선택)</label>
@@ -2511,8 +2544,8 @@ export default function PlanPage() {
               </div>
             </div>
             <div className={styles.popup_footer}>
-              <button className={styles.popup_cancel} onClick={() => setShowCertPopup(false)}>취소</button>
-              <button className={styles.popup_confirm} onClick={handleAddCert} disabled={!certForm.name.trim()}>추가</button>
+              <button className={styles.popup_cancel} onClick={() => { setShowCertPopup(false); setEditCertId(null); }}>취소</button>
+              <button className={styles.popup_confirm} onClick={handleAddCert} disabled={!certForm.name.trim() || certForm.credits < 1}>{editCertId ? '수정' : '추가'}</button>
             </div>
           </div>
         </div>

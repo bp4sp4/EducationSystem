@@ -452,6 +452,23 @@
 
 .item_remove_btn:hover { color: #EF4444; }
 
+.item_edit_btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: #b0b8c1;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.item_edit_btn:hover { color: #3182F6; }
+
 /* subject 삭제 버튼 */
 .subject_delete_btn {
   display: inline-flex;
