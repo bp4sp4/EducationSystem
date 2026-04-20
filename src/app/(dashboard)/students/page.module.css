@@ -471,6 +471,25 @@
   background-color: #1B6EE8;
 }
 
+.excel_btn {
+  height: 38px;
+  padding: 0 16px;
+  background-color: #FFFFFF;
+  color: #107C41;
+  border: 1px solid #107C41;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.excel_btn:hover {
+  background-color: #F0FAF4;
+}
+
 /* ── 테이블 ── */
 .table_wrap {
   width: 100%;

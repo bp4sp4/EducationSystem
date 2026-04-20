@@ -164,6 +164,26 @@ export default function StudentsPage() {
   const totalStudentPages = Math.ceil(filtered.length / STUDENT_PAGE_SIZE);
   const pagedStudents = filtered.slice((studentPage - 1) * STUDENT_PAGE_SIZE, studentPage * STUDENT_PAGE_SIZE);
 
+  async function handleExcelDownload() {
+    const XLSX = await import('xlsx');
+    const data = [
+      ['이름', '연락처', '담당자'],
+      ...filtered.map((s) => [
+        s.name ?? '',
+        formatPhone(s.phone),
+        s.manager_name ?? '',
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    // 컬럼 너비 설정
+    ws['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '학생목록');
+    const today = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `학생목록_${today}.xlsx`);
+    logActivity({ action: '학생 목록 다운로드', target_type: 'student', detail: `${filtered.length}명 (xlsx)` });
+  }
+
   async function handleSubmit(data: StudentFormData) {
     const payload = {
       name: data.name,
@@ -330,6 +350,10 @@ export default function StudentsPage() {
 
         <button className={styles.add_btn} onClick={() => { setEditTarget(null); setModalOpen(true); }}>
           + 학생 추가
+        </button>
+
+        <button className={styles.excel_btn} onClick={handleExcelDownload}>
+          엑셀 다운로드
         </button>
       </div>
 
