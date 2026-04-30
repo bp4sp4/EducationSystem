@@ -29,6 +29,14 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isMaintenancePage = request.nextUrl.pathname.startsWith('/maintenance');
+
+  if (process.env.SITE_BLOCKED === 'true' && !isMaintenancePage) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/maintenance';
+    return NextResponse.redirect(url);
+  }
+
   const isLoginPage = request.nextUrl.pathname.startsWith('/login');
 
   if (!user && !isLoginPage) {
